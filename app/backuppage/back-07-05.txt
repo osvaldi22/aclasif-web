@@ -1,0 +1,272 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+import AclasifChat from "./components/AclasifChat";
+import { useRouter } from "next/navigation"; // ← nuevo
+
+// --- TIPOS Y CONFIGURACIÓN ---
+type Listing = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price_usd: number;
+  premium_until: string | null;
+  image_url?: string | null;
+  article_code?: string | null;
+  is_active?: boolean | null;
+  moderation_status?: "pending" | "verified" | "suspended" | null;
+};
+
+type Category = { slug: string; name: string };
+type Toast = { show: boolean; text: string };
+
+const ADMIN_WHATSAPP = "595981784334";
+
+const iconMap: { [key: string]: string } = {
+  "Electrónica": "🎧", "electronica": "🎧",
+  "Hogar": "🏠", "hogar": "🏠",
+  "Moda": "👕", "moda": "👕",
+  "Calzados": "👟", "calzados": "👟",
+  "Repuestos": "🔧", "repuestos": "🔧",
+  "Mascotas": "🐶", "mascotas": "🐶",
+  "Juguetes": "🧸", "juguetes": "🧸",
+  "Deportes": "⚽", "deportes": "⚽",
+  "Perfumes": "✨", "perfumes": "✨",
+  "Accesorios": "⌚", "accesorios": "⌚",
+  "Fitness": "💪", "fitness": "💪",
+  "Relojes": "🕐", "relojes": "🕐",
+  "Ropa": "👔", "ropa": "👔",
+};
+
+const categoryColors: { [key: string]: string } = {
+  all: "#FF7A00",
+  Electrónica: "#3B82F6", electronica: "#3B82F6",
+  Hogar: "#10B981", hogar: "#10B981",
+  Moda: "#A855F7", moda: "#A855F7",
+  Calzados: "#F59E0B", calzados: "#F59E0B",
+  Repuestos: "#EF4444", repuestos: "#EF4444",
+  Mascotas: "#14B8A6", mascotas: "#14B8A6",
+  Juguetes: "#F97316", juguetes: "#F97316",
+  Deportes: "#22C55E", deportes: "#22C55E",
+  Perfumes: "#EC4899", perfumes: "#EC4899",
+  Accesorios: "#6366F1", accesorios: "#6366F1",
+  Fitness: "#8B5CF6", fitness: "#8B5CF6",
+  Relojes: "#06B67F", relojes: "#06B67F",
+  Ropa: "#F43F5E", ropa: "#F43F5E"
+};
+
+function getIcon(catName: string) { return iconMap[catName] || "📦"; }
+
+function premiumActive(premium_until: string | null) {
+  if (!premium_until) return false;
+  return new Date(premium_until) > new Date();
+}
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+export default function Home() {
+  const router = useRouter(); // ← nuevo
+
+  const [items, setItems] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("Cargando...");
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [selected, setSelected] = useState<Listing | null>(null);
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerWhatsapp, setBuyerWhatsapp] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState(""); // ← nuevo campo
+  const [buyerCity, setBuyerCity] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [toast, setToast] = useState<Toast>({ show: false, text: "" });
+
+  useEffect(() => {
+    setMounted(true);
+    async function load() {
+      setStatus("Cargando...");
+      const { data: listData } = await supabase
+        .from("listings")
+        .select("*")
+        .eq("is_active", true)
+        .eq("moderation_status", "verified");
+
+      if (listData) setItems(listData as Listing[]);
+
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("slug,name")
+        .eq("is_active", true)
+        .order("name");
+
+      if (catData) setCategories(catData as Category[]);
+
+      const { data: user } = await supabase.auth.getUser();
+      setSessionUser(user.user ?? null);
+      setStatus("");
+    }
+
+    load();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function createOrder() {
+    if (!selected || !buyerName || !buyerWhatsapp || !buyerCity || !buyerAddress) return;
+    setBuyLoading(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert([{
+        listing_id: selected.id,
+        listing_title: selected.title,
+        price_usd: selected.price_usd,
+        buyer_name: buyerName,
+        buyer_whatsapp: buyerWhatsapp,
+        buyer_email: buyerEmail, // ← opcional
+        buyer_city: buyerCity,
+        buyer_address: buyerAddress,
+        status: "pending_payment"
+      }])
+      .select("order_number")
+      .single();
+
+    if (!error) {
+      setBuyOpen(false);
+      setToast({ show: true, text: `Pedido #${data.order_number} listo. Redirigiendo al chat...` });
+      // Redirigir al chat en pantalla completa
+      setTimeout(() => {
+        const params = new URLSearchParams();
+        params.set("order", data.order_number);
+        params.set("producto", selected.title);
+        params.set("nombre", buyerName);
+        params.set("whatsapp", buyerWhatsapp);
+        if (buyerEmail) params.set("email", buyerEmail);
+        router.push(`/chat?${params.toString()}`);
+        setToast({ show: false, text: "" });
+      }, 2000);
+    }
+
+    setBuyLoading(false);
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSessionUser(null);
+  };
+
+  const filtered = useMemo(() => {
+    return items
+      .filter(
+        (x) =>
+          (selectedCategory === "all" || x.category === selectedCategory) &&
+          (x.title.toLowerCase().includes(q.toLowerCase()) ||
+            (x.article_code || "").toLowerCase().includes(q.toLowerCase()))
+      )
+      .sort(
+        (a, b) =>
+          (premiumActive(b.premium_until) ? 1 : 0) - (premiumActive(a.premium_until) ? 1 : 0)
+      );
+  }, [items, q, selectedCategory]);
+
+  return (
+    <main className="min-h-screen relative font-sans overflow-x-hidden bg-slate-900">
+      {/* ... (todos los estilos y estructura se mantienen igual) ... */}
+      {/* Solo se muestra la parte del modal que cambió */}
+
+      {/* MODAL DE COMPRA CON ESTILO LOGIN */}
+      {buyOpen && selected && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+          <div className="login-shell w-full max-w-md rounded-[2rem] p-4">
+            <div className="login-inner rounded-[1.7rem] p-6 relative">
+              <div className="mb-4 flex justify-center">
+                <img
+                  src="/aclasif-logo.png"
+                  alt="Aclasif"
+                  style={{ width: "220px", height: "auto" }}
+                  className="object-contain"
+                />
+              </div>
+
+              <h2 className="text-xl font-black text-slate-800 mb-1">
+                Finalizar <span className="text-[#2FA84F]">Pedido</span>
+              </h2>
+              <p className="text-sm text-slate-500 mb-4">{selected.title}</p>
+
+              <button
+                onClick={() => setBuyOpen(false)}
+                className="absolute top-4 right-5 text-slate-400 hover:text-red-500 text-2xl"
+              >
+                ✕
+              </button>
+
+              <div className="space-y-3">
+                <input
+                  value={buyerName}
+                  onChange={e => setBuyerName(e.target.value)}
+                  placeholder="Nombre y Apellido"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <input
+                  value={buyerWhatsapp}
+                  onChange={e => setBuyerWhatsapp(e.target.value)}
+                  placeholder="Tu WhatsApp (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <input
+                  value={buyerCity}
+                  onChange={e => setBuyerCity(e.target.value)}
+                  placeholder="Ciudad (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <textarea
+                  value={buyerAddress}
+                  onChange={e => setBuyerAddress(e.target.value)}
+                  placeholder="Dirección de entrega (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30 h-20 resize-none"
+                  required
+                />
+                {/* CAMPO DE CORREO OPCIONAL */}
+                <div>
+                  <input
+                    value={buyerEmail}
+                    onChange={e => setBuyerEmail(e.target.value)}
+                    placeholder="Correo electrónico (no obligatorio)"
+                    className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1 ml-2">No obligatorio</p>
+                </div>
+
+                <button
+                  onClick={createOrder}
+                  disabled={buyLoading}
+                  className="mt-4 w-full rounded-2xl bg-[#2FA84F] py-4 text-white font-black text-sm uppercase shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50"
+                >
+                  {buyLoading ? "Procesando..." : "Confirmar y enviar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ... el resto del código (AclasifChat, toast, etc.) sigue igual ... */}
+    </main>
+  );
+}

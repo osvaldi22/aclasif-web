@@ -1,0 +1,572 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+
+type Listing = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price_usd: number;
+  premium_until: string | null;
+  image_url?: string | null;
+  article_code?: string | null;
+  is_active?: boolean | null;
+  moderation_status?: "pending" | "verified" | "suspended" | null;
+};
+
+type Category = {
+  slug: string;
+  name: string;
+};
+
+type Toast = { show: boolean; text: string };
+
+function premiumActive(premium_until: string | null) {
+  if (!premium_until) return false;
+  return new Date(premium_until) > new Date();
+}
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+function buildWhatsAppMessage(params: {
+  orderNumber: number;
+  title: string;
+  price: number;
+  name: string;
+  whatsapp: string;
+  city: string;
+  address: string;
+  note: string;
+}) {
+  const lines = [
+    `Pedido AmazonPY recibido`,
+    ``,
+    `Orden: #${params.orderNumber}`,
+    `Producto: ${params.title}`,
+    `Precio: ${formatGs(params.price)}`,
+    ``,
+    `Cliente: ${params.name}`,
+    `WhatsApp cliente: ${params.whatsapp}`,
+    `Ciudad: ${params.city}`,
+    `Direccion: ${params.address}`,
+  ];
+
+  if (params.note.trim()) {
+    lines.push(`Observacion: ${params.note.trim()}`);
+  }
+
+  lines.push(
+    ``,
+    `Enviar comprobante de pago para confirmar el pedido.`,
+    `Luego coordinamos con el vendedor y la entrega.`
+  );
+
+  return lines.join("\n");
+}
+
+export default function Home() {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("Cargando...");
+  const [sessionUser, setSessionUser] = useState<any>(null);
+
+  const [toast, setToast] = useState<Toast>({ show: false, text: "" });
+
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [selected, setSelected] = useState<Listing | null>(null);
+
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerWhatsapp, setBuyerWhatsapp] = useState("");
+  const [buyerCity, setBuyerCity] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerNote, setBuyerNote] = useState("");
+
+  const [buyMsg, setBuyMsg] = useState<string>("");
+  const [buyLoading, setBuyLoading] = useState(false);
+
+  const ADMIN_WHATSAPP = "595981784334";
+
+  async function createOrder() {
+    if (!selected) return;
+
+    setBuyMsg("");
+
+    if (
+      !buyerName.trim() ||
+      !buyerWhatsapp.trim() ||
+      !buyerCity.trim() ||
+      !buyerAddress.trim()
+    ) {
+      setBuyMsg(
+        "Falta completar: Nombre completo, WhatsApp, Ciudad y Direccion."
+      );
+      return;
+    }
+
+    setBuyLoading(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert([
+        {
+          listing_id: selected.id,
+          listing_title: selected.title,
+          price_usd: selected.price_usd,
+          buyer_name: buyerName.trim(),
+          buyer_whatsapp: buyerWhatsapp.trim(),
+          buyer_city: buyerCity.trim(),
+          buyer_address: buyerAddress.trim(),
+          buyer_note: buyerNote.trim() || null,
+          status: "pending_payment",
+        },
+      ])
+      .select("id, order_number")
+      .single();
+
+    setBuyLoading(false);
+
+    if (error) {
+      setBuyMsg("Error: " + error.message);
+      return;
+    }
+
+    const orderNumber = Number(data.order_number);
+
+    setBuyOpen(false);
+
+    setToast({
+      show: true,
+      text: `Pedido recibido (#${orderNumber}). En 3 segundos te abrimos WhatsApp para enviar el comprobante.`,
+    });
+
+    window.setTimeout(() => {
+      setToast({ show: false, text: "" });
+    }, 7000);
+
+    const msg = buildWhatsAppMessage({
+      orderNumber,
+      title: selected.title,
+      price: Number(selected.price_usd),
+      name: buyerName.trim(),
+      whatsapp: buyerWhatsapp.trim(),
+      city: buyerCity.trim(),
+      address: buyerAddress.trim(),
+      note: buyerNote,
+    });
+
+    const waUrl = `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(
+      msg
+    )}`;
+
+    setTimeout(() => {
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+    }, 3000);
+
+    setBuyerName("");
+    setBuyerWhatsapp("");
+    setBuyerCity("");
+    setBuyerAddress("");
+    setBuyerNote("");
+    setBuyMsg("");
+  }
+
+  async function loadSession() {
+    const { data } = await supabase.auth.getUser();
+    setSessionUser(data.user ?? null);
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    setSessionUser(null);
+    window.location.href = "/";
+  }
+
+  useEffect(() => {
+    async function load() {
+      setStatus("Cargando...");
+
+      const { data, error } = await supabase
+        .from("listings")
+        .select(
+          "id,title,description,category,price_usd,premium_until,image_url,article_code,is_active,moderation_status"
+        )
+        .eq("is_active", true)
+        .eq("moderation_status", "verified")
+        .limit(120);
+
+      if (error) {
+        setStatus("Error: " + error.message);
+        return;
+      }
+
+      setItems((data ?? []) as Listing[]);
+      setStatus("");
+    }
+
+    async function loadCategories() {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("slug,name")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+
+      if (!error) {
+        setCategories((data ?? []) as Category[]);
+      }
+    }
+
+    load();
+    loadCategories();
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  function categoryNameFromSlug(slug: string) {
+    const found = categories.find((c) => c.slug === slug);
+    return found ? found.name : slug;
+  }
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+
+    let arr = items;
+
+    if (selectedCategory !== "all") {
+      arr = arr.filter((x) => x.category === selectedCategory);
+    }
+
+    if (t) {
+      arr = arr.filter(
+        (x) =>
+          x.title.toLowerCase().includes(t) ||
+          x.description.toLowerCase().includes(t) ||
+          x.category.toLowerCase().includes(t) ||
+          (x.article_code ?? "").toLowerCase().includes(t)
+      );
+    }
+
+    return [...arr].sort((a, b) => {
+      const ap = premiumActive(a.premium_until) ? 1 : 0;
+      const bp = premiumActive(b.premium_until) ? 1 : 0;
+      return bp - ap;
+    });
+  }, [items, q, selectedCategory]);
+
+  return (
+    <main className="min-h-screen bg-[#0b0b0b] text-white">
+      {toast.show && (
+        <div className="fixed left-1/2 top-4 z-[1000] -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-2xl bg-[#2FA84F] px-4 py-3 text-sm font-bold text-black shadow-[0_18px_60px_rgba(0,0,0,0.5)]">
+            <span>Pedido recibido</span>
+            <span>{toast.text}</span>
+          </div>
+        </div>
+      )}
+
+      <header className="sticky top-0 z-50 border-b border-black/30 bg-gradient-to-r from-[#f4c400] via-[#f4c400] to-[#eab308]">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+          <Link
+            href="/"
+            className="text-xl font-black tracking-wide text-black drop-shadow"
+          >
+            AMAZON<span className="text-[#2FA84F]">PY</span>
+          </Link>
+
+          <div className="flex flex-1 items-center gap-2 rounded-2xl bg-white px-4 py-2 text-black shadow">
+            <span className="opacity-60">🔎</span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar productos..."
+              className="w-full bg-transparent outline-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!sessionUser ? (
+              <>
+                <Link
+                  href="/register"
+                  className="rounded-2xl border border-black bg-white px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 active:scale-[0.98]"
+                >
+                  Registrarme
+                </Link>
+
+                <Link
+                  href="/login"
+                  className="rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+                >
+                  Iniciar sesion
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="rounded-2xl border border-black bg-white px-4 py-2 text-sm font-semibold text-black transition hover:brightness-95 active:scale-[0.98]"
+                >
+                  Ir a mi panel
+                </Link>
+
+                <button
+                  onClick={logout}
+                  className="rounded-2xl bg-black px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+                >
+                  Cerrar sesion
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <section className="mx-auto max-w-6xl px-4 pt-6">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10">
+          <div className="relative h-[220px] w-full md:h-[260px]">
+            <Image
+              src="/hero-amazonpy.png"
+              alt="Amazonpy banner"
+              fill
+              className="object-cover object-top"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-black/25 to-black/40" />
+
+            <div className="absolute inset-x-0 bottom-0 p-4 md:p-6">
+              <div className="inline-flex items-center gap-2 rounded-2xl bg-black/45 px-4 py-2 text-xs font-semibold">
+                Compra segura • Envios verificados • Premium arriba
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pt-6">
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedCategory("all")}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              selectedCategory === "all"
+                ? "bg-[#f4c400] text-black"
+                : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            Todas
+          </button>
+
+          {categories.map((cat) => (
+            <button
+              key={cat.slug}
+              onClick={() => setSelectedCategory(cat.slug)}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                selectedCategory === cat.slug
+                  ? "bg-[#f4c400] text-black"
+                  : "bg-white/10 text-white hover:bg-white/20"
+              }`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-16 pt-6">
+        {status && <p className="text-white/75">{status}</p>}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          {filtered.map((it) => {
+            const isPremium = premiumActive(it.premium_until);
+
+            return (
+              <article
+                key={it.id}
+                className={[
+                  "rounded-3xl border p-5 shadow-[0_12px_45px_rgba(0,0,0,0.45)]",
+                  isPremium
+                    ? "border-[#f4c400]/40 bg-gradient-to-b from-[#1b1604] to-[#0f0f0f]"
+                    : "border-white/10 bg-[#121212]",
+                ].join(" ")}
+              >
+                <Link href={`/producto/${it.article_code}`} className="block">
+                  {it.image_url ? (
+                    <div className="mb-4 flex h-48 w-full items-center justify-center overflow-hidden rounded-2xl bg-[#181818]">
+                      <img
+                        src={it.image_url}
+                        alt={it.title}
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="mb-4 flex h-48 w-full items-center justify-center rounded-2xl bg-[#181818] text-sm text-white/50">
+                      Sin imagen
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/80">
+                      {categoryNameFromSlug(it.category)}
+                    </span>
+
+                    {isPremium && (
+                      <span className="rounded-full bg-[#f4c400] px-3 py-1 text-xs font-black text-black">
+                        PREMIUM
+                      </span>
+                    )}
+                  </div>
+
+                  {it.article_code && (
+                    <p className="mt-3 text-xs font-bold text-[#f4c400]">
+                      Articulo: {it.article_code}
+                    </p>
+                  )}
+
+                  <h3 className="mt-4 text-lg font-extrabold">{it.title}</h3>
+
+                  <p className="mt-2 line-clamp-3 text-sm text-white/75">
+                    {it.description}
+                  </p>
+                </Link>
+
+                <div className="mt-5 flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-white/60">Precio</p>
+                    <p className="text-xl font-black text-[#f4c400]">
+                      {formatGs(it.price_usd)}
+                    </p>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Link
+                      href={`/producto/${it.article_code}`}
+                      className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/20 active:scale-[0.98]"
+                    >
+                      Ver
+                    </Link>
+
+                    <button
+                      onClick={() => {
+                        setSelected(it);
+                        setBuyOpen(true);
+                        setBuyMsg("");
+                      }}
+                      className="rounded-2xl bg-[#2FA84F] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+                    >
+                      Comprar
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      {buyOpen && selected && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-[#111] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs text-white/70">Comprar</p>
+                <h3 className="text-lg font-extrabold">{selected.title}</h3>
+                <p className="mt-1 text-sm text-white/70">
+                  {formatGs(selected.price_usd)}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setBuyOpen(false)}
+                className="rounded-xl bg-white/10 px-3 py-2 text-sm font-semibold hover:bg-white/15"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <input
+                value={buyerName}
+                onChange={(e) => setBuyerName(e.target.value)}
+                placeholder="Nombre completo"
+                className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+              />
+
+              <input
+                value={buyerWhatsapp}
+                onChange={(e) => setBuyerWhatsapp(e.target.value)}
+                placeholder="WhatsApp"
+                className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+              />
+
+              <input
+                value={buyerCity}
+                onChange={(e) => setBuyerCity(e.target.value)}
+                placeholder="Ciudad"
+                className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+              />
+
+              <input
+                value={buyerAddress}
+                onChange={(e) => setBuyerAddress(e.target.value)}
+                placeholder="Direccion"
+                className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+              />
+
+              <textarea
+                value={buyerNote}
+                onChange={(e) => setBuyerNote(e.target.value)}
+                placeholder="Observacion"
+                rows={3}
+                className="w-full resize-none rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+              />
+
+              {buyMsg && (
+                <div className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10">
+                  {buyMsg}
+                </div>
+              )}
+
+              <div className="mt-2 flex gap-3">
+                <button
+                  onClick={() => setBuyOpen(false)}
+                  className="flex-1 rounded-2xl bg-white/10 px-4 py-3 text-sm font-semibold hover:bg-white/15"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  onClick={createOrder}
+                  disabled={buyLoading}
+                  className="flex-1 rounded-2xl bg-[#2FA84F] px-4 py-3 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                >
+                  {buyLoading ? "Creando..." : "Confirmar compra"}
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-4 text-xs text-white/50">
+              Estado inicial: <b>pending_payment</b>. Envia el comprobante por
+              WhatsApp.
+            </p>
+          </div>
+        </div>
+      )}
+    </main>
+  );
+}

@@ -1,0 +1,556 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+
+// --- TIPOS Y CONFIGURACIÓN ---
+type Listing = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price_usd: number;
+  premium_until: string | null;
+  image_url?: string | null;
+  article_code?: string | null;
+  is_active?: boolean | null;
+  moderation_status?: "pending" | "verified" | "suspended" | null;
+};
+
+type Category = { slug: string; name: string };
+type Toast = { show: boolean; text: string };
+
+const ADMIN_WHATSAPP = "595981784334";
+
+const iconMap: { [key: string]: string } = {
+  "Electrónica": "🎧", "electronica": "🎧",
+  "Hogar": "🏠", "hogar": "🏠",
+  "Moda": "👕", "moda": "👕",
+  "Calzados": "👟", "calzados": "👟",
+  "Repuestos": "🔧", "repuestos": "🔧",
+  "Mascotas": "🐶", "mascotas": "🐶",
+  "Juguetes": "🧸", "juguetes": "🧸",
+  "Deportes": "⚽", "deportes": "⚽",
+  "Perfumes": "✨", "perfumes": "✨",
+  "Accesorios": "⌚", "accesorios": "⌚",
+  "Fitness": "💪", "fitness": "💪",
+  "Relojes": "🕐", "relojes": "🕐",
+  "Ropa": "👔", "ropa": "👔",
+};
+
+const categoryColors: { [key: string]: string } = {
+  all: "#FF7A00",
+  Electrónica: "#3B82F6", electronica: "#3B82F6",
+  Hogar: "#10B981", hogar: "#10B981",
+  Moda: "#A855F7", moda: "#A855F7",
+  Calzados: "#F59E0B", calzados: "#F59E0B",
+  Repuestos: "#EF4444", repuestos: "#EF4444",
+  Mascotas: "#14B8A6", mascotas: "#14B8A6",
+  Juguetes: "#F97316", juguetes: "#F97316",
+  Deportes: "#22C55E", deportes: "#22C55E",
+  Perfumes: "#EC4899", perfumes: "#EC4899",
+  Accesorios: "#6366F1", accesorios: "#6366F1",
+  Fitness: "#8B5CF6", fitness: "#8B5CF6",
+  Relojes: "#06B67F", relojes: "#06B67F",
+  Ropa: "#F43F5E", ropa: "#F43F5E"
+};
+
+function getIcon(catName: string) { return iconMap[catName] || "📦"; }
+
+function premiumActive(premium_until: string | null) {
+  if (!premium_until) return false;
+  return new Date(premium_until) > new Date();
+}
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+export default function Home() {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("Cargando...");
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [selected, setSelected] = useState<Listing | null>(null);
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerWhatsapp, setBuyerWhatsapp] = useState("");
+  const [buyerCity, setBuyerCity] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [toast, setToast] = useState<Toast>({ show: false, text: "" });
+
+  useEffect(() => {
+    setMounted(true);
+    async function load() {
+      setStatus("Cargando...");
+      const { data: listData } = await supabase
+        .from("listings")
+        .select("*")
+        .eq("is_active", true)
+        .eq("moderation_status", "verified");
+
+      if (listData) setItems(listData as Listing[]);
+
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("slug,name")
+        .eq("is_active", true)
+        .order("name");
+
+      if (catData) setCategories(catData as Category[]);
+
+      const { data: user } = await supabase.auth.getUser();
+      setSessionUser(user.user ?? null);
+      setStatus("");
+    }
+
+    load();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function createOrder() {
+    if (!selected || !buyerName || !buyerWhatsapp || !buyerCity || !buyerAddress) return;
+    setBuyLoading(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert([{
+        listing_id: selected.id,
+        listing_title: selected.title,
+        price_usd: selected.price_usd,
+        buyer_name: buyerName,
+        buyer_whatsapp: buyerWhatsapp,
+        buyer_city: buyerCity,
+        buyer_address: buyerAddress,
+        status: "pending_payment"
+      }])
+      .select("order_number")
+      .single();
+
+    if (!error) {
+      setBuyOpen(false);
+      setToast({ show: true, text: `Pedido #${data.order_number} listo. Abriendo WhatsApp...` });
+      const msg = `Pedido AmazonPY\nOrden: #${data.order_number}\nProducto: ${selected.title}\nCliente: ${buyerName}\nWhatsApp: ${buyerWhatsapp}`;
+      setTimeout(() => {
+        window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(msg)}`, "_blank");
+        setToast({ show: false, text: "" });
+      }, 2500);
+    }
+
+    setBuyLoading(false);
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSessionUser(null);
+  };
+
+  const filtered = useMemo(() => {
+    return items
+      .filter(
+        (x) =>
+          (selectedCategory === "all" || x.category === selectedCategory) &&
+          (x.title.toLowerCase().includes(q.toLowerCase()) ||
+            (x.article_code || "").toLowerCase().includes(q.toLowerCase()))
+      )
+      .sort(
+        (a, b) =>
+          (premiumActive(b.premium_until) ? 1 : 0) - (premiumActive(a.premium_until) ? 1 : 0)
+      );
+  }, [items, q, selectedCategory]);
+
+  return (
+    <main className="min-h-screen relative font-sans overflow-x-hidden bg-slate-900">
+      <style jsx global>{`
+        @keyframes float {
+          0% { transform: translate(0,0); }
+          50% { transform: translate(15px, -30px); }
+          100% { transform: translate(0,0); }
+        }
+
+        .bubble-float {
+          animation: float linear infinite;
+        }
+
+        /* BORDE CELESTE ONDULADO */
+        .card-shell {
+  position: relative;
+  padding: 14px;
+  background: linear-gradient(180deg, #bddcff 0%, #9ecbfd 100%);
+  box-shadow:
+    0 18px 40px rgba(74, 136, 230, 0.28),
+    0 0 0 2px rgba(255,255,255,0.28) inset;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  overflow: hidden;
+  clip-path: polygon(
+    8% 2%, 18% 0%, 32% 3%, 50% 1%, 68% 4%, 82% 0%, 92% 3%, 98% 10%,
+    100% 22%, 98% 34%, 100% 50%, 97% 66%, 100% 80%, 95% 92%, 84% 98%,
+    70% 100%, 54% 98%, 38% 100%, 22% 97%, 10% 100%, 2% 92%, 0% 78%,
+    3% 62%, 0% 48%, 2% 34%, 0% 20%, 4% 8%
+  );
+}
+
+        .card-shell:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow:
+    0 26px 54px rgba(116, 173, 255, 0.28),
+    0 0 0 2px rgba(255,255,255,0.45) inset;
+}        
+.card-shell > * {
+          position: relative;
+          z-index: 1;
+        }
+
+        /* FONDO BLANCO GRANDE TAMBIEN ONDULADO */
+        .card-inner-wave {
+          background: rgba(255,255,255,0.92);
+          padding: 1.25rem;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          box-shadow: 0 10px 24px rgba(0,0,0,0.08);
+          clip-path: polygon(
+            8% 2%, 18% 0%, 32% 3%, 50% 1%, 68% 4%, 82% 0%, 92% 3%, 98% 10%,
+            100% 22%, 98% 34%, 100% 50%, 97% 66%, 100% 80%, 95% 92%, 84% 98%,
+            70% 100%, 54% 98%, 38% 100%, 22% 97%, 10% 100%, 2% 92%, 0% 78%,
+            3% 62%, 0% 48%, 2% 34%, 0% 20%, 4% 8%
+          );
+        }
+      `}</style>
+
+      {/* FONDO NUEVO ILUSTRADO */}
+      <div className="fixed inset-0 z-0">
+        <img
+          src="/fondo-amazonpy.jpg"
+          alt="Fondo AmazonPY"
+          className="w-full h-full object-cover"
+        />
+      </div>
+
+      {/* Burbujas flotantes */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        {mounted && Array.from({ length: 15 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full opacity-30 bubble-float"
+            style={{
+              background: ["#FFF", "#F4C400", "#00D084"][i % 3],
+              width: `${25 + Math.random() * 30}px`,
+              height: `${25 + Math.random() * 30}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animationDuration: `${4 + Math.random() * 4}s`
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10">
+        <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 gap-4">
+            
+<Link href="/" className="relative inline-block leading-none">
+  <span className="absolute -top-3 left-1 text-[15px] font-black text-black not-italic">
+    by:
+  </span>
+  <span className="text-3xl font-black italic text-[#0066FF]">
+    AMAZON<span className="text-[#F4C400]">PY</span>
+  </span>
+</Link>            <div className="flex-1 max-w-md hidden md:block">
+              <input
+                type="text"
+                placeholder="¿Qué buscas hoy?"
+                className="w-full rounded-full bg-white/90 px-6 py-2 shadow-inner outline-none focus:ring-4 focus:ring-blue-300"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              {!sessionUser ? (
+                <>
+                  <Link href="/login" className="text-sm font-bold text-slate-700 hover:text-blue-600">
+                    Entrar
+                  </Link>
+                  <Link href="/register" className="rounded-full bg-black px-6 py-2 text-sm font-black text-white hover:scale-105 transition">
+                    REGISTRARME
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/dashboard" className="rounded-full bg-[#0066FF] px-6 py-2 text-sm font-black text-white shadow-lg">
+                    MI PANEL
+                  </Link>
+                  <button onClick={logout} className="text-xs font-bold text-red-500 underline">
+                    Salir
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* HERO SECTION */}
+        <section className="mx-auto max-w-7xl px-4 pt-8 flex items-center justify-center gap-6">
+          <div className="hidden lg:flex flex-col items-center group transition-transform hover:scale-110">
+            <a href="https://facebook.com" target="_blank" className="bg-white/80 p-4 rounded-full shadow-lg mb-2">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="#1877F2">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+            </a>
+            <span className="text-[11px] font-black text-blue-700 uppercase tracking-widest drop-shadow-sm">
+              Síguenos
+            </span>
+          </div>
+
+          <div className="flex-1 max-w-5xl overflow-hidden rounded-[3rem] border-8 border-white bg-white shadow-2xl">
+            <img
+              src="/hero-amazonpy-6.png"
+              alt="Banner"
+              className="block w-full h-auto transition-transform -translate-x-4"
+              style={{ marginTop: "-18%", marginBottom: "-16%" }}
+            />
+          </div>
+
+          <div className="hidden lg:flex flex-col items-center group transition-transform hover:scale-110">
+            <a href="https://instagram.com" target="_blank" className="bg-white/80 p-4 rounded-full shadow-lg mb-2">
+              <svg width="40" height="40" viewBox="0 0 24 24">
+                <defs>
+                  <linearGradient id="hero-insta" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" style={{ stopColor: "#f09433" }} />
+                    <stop offset="25%" style={{ stopColor: "#e6683c" }} />
+                    <stop offset="50%" style={{ stopColor: "#dc2743" }} />
+                    <stop offset="75%" style={{ stopColor: "#cc2366" }} />
+                    <stop offset="100%" style={{ stopColor: "#bc1888" }} />
+                  </linearGradient>
+                </defs>
+                <path fill="url(#hero-insta)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+              </svg>
+            </a>
+            <span className="text-[11px] font-black text-pink-600 uppercase tracking-widest drop-shadow-sm">
+              Síguenos
+            </span>
+          </div>
+        </section>
+
+        {/* MENÚ DE CATEGORÍAS TRANSPARENTE */}
+        <section className="mx-auto max-w-6xl px-4 pt-10">
+          <div className="bg-transparent p-4 flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`rounded-full px-6 py-2.5 text-base font-black shadow-lg transition-all flex items-center gap-2 text-white hover:brightness-110 ${selectedCategory === "all" ? "scale-110 ring-4 ring-white/70 shadow-2xl" : ""}`}
+              style={{ backgroundColor: categoryColors.all }}
+            >
+              🌈 Todas
+            </button>
+            {categories.map((c) => {
+              const catColor = categoryColors[c.name] || categoryColors[c.slug] || "#64748B";
+              const isSelected = selectedCategory === c.slug;
+              return (
+                <button
+                  key={c.slug}
+                  onClick={() => setSelectedCategory(c.slug)}
+                  className={`rounded-full px-6 py-2.5 text-base font-black shadow-lg transition-all flex items-center gap-2 text-white hover:brightness-110 ${isSelected ? "scale-110 ring-4 ring-white/70 shadow-2xl" : ""}`}
+                  style={{ backgroundColor: catColor }}
+                >
+                  <span className="text-2xl">{getIcon(c.name)}</span> {c.name}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* GRILLA DE PRODUCTOS */}
+        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-2 lg:grid-cols-4 gap-8">
+          {filtered.map((it) => (
+            <div key={it.id} className="card-shell">
+              <article className="group card-inner-wave">
+                <Link
+                  href={`/producto/${it.article_code || "#"}`}
+                  className="relative h-52 w-full overflow-hidden rounded-[2rem] bg-gray-50 mb-4 flex items-center justify-center border-2 border-white"
+                >
+                  {it.image_url ? (
+                    <img
+                      src={it.image_url}
+                      alt={it.title}
+                      className="h-full w-full object-contain p-4 group-hover:scale-110 transition-transform"
+                    />
+                  ) : (
+                    <div className="text-blue-100 font-black italic text-2xl">AmazonPy</div>
+                  )}
+                  {premiumActive(it.premium_until) && (
+                    <div className="absolute top-4 right-4 bg-[#F4C400] text-black text-[10px] font-black px-4 py-1 rounded-full border-2 border-white animate-pulse">
+                      ⭐ PREMIUM
+                    </div>
+                  )}
+                </Link>
+                <div className="flex-1">
+                  <div
+                    className="inline-flex items-center gap-1.5 mb-2 font-black text-[10px] uppercase rounded-full px-3 py-1 border-2 border-white shadow-sm text-white"
+                    style={{ backgroundColor: categoryColors[it.category] || "#64748B" }}
+                  >
+                    <span>{getIcon(it.category)}</span> {it.category}
+                  </div>
+                  <h3 className="font-extrabold text-slate-800 text-sm line-clamp-2 leading-tight mb-2">
+                    {it.title}
+                  </h3>
+                  <p className="text-2xl font-black text-[#0066FF]">{formatGs(it.price_usd)}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelected(it);
+                    setBuyOpen(true);
+                  }}
+                  className="w-full mt-4 rounded-2xl bg-[#2FA84F] py-4 text-white font-black text-xs uppercase shadow-lg hover:brightness-110 active:scale-95 transition-all"
+                >
+                  Pedir por WhatsApp
+                </button>
+              </article>
+            </div>
+          ))}
+        </section>
+
+        {/* FOOTER CON COLOR #E0F7FA Y REDES SOCIALES */}
+        <footer className="relative mt-20 bg-[#E0F7FA] border-t border-white/20 pt-16 pb-8">
+          <div className="mx-auto max-w-7xl px-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12 items-start">
+              <div className="space-y-4 -mt-10">
+                <img src="/amazonpy-paraguay.png" alt="AmazonPy" className="h-48 w-auto object-contain" />
+                <p className="text-slate-700 text-sm font-bold leading-relaxed">
+                  La plataforma de clasificados más divertida y segura de Paraguay.
+                  Comprá y vendé de todo con un solo clic. 🇵🇾
+                </p>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase tracking-tighter mb-6">Navegación</h4>
+                <ul className="space-y-3 text-sm font-bold text-slate-600">
+                  <li><Link href="/nosotros" className="hover:text-[#0066FF]">Sobre Nosotros</Link></li>
+                  <li><Link href="/como-vender" className="hover:text-[#0066FF]">¿Cómo vender?</Link></li>
+                  <li><Link href="/premium" className="hover:text-[#0066FF]">Ser Premium ⭐</Link></li>
+                  <li><Link href="/ayuda" className="hover:text-[#0066FF]">Centro de Ayuda</Link></li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase tracking-tighter mb-6">Legales</h4>
+                <ul className="space-y-3 text-sm font-bold text-slate-600 mb-8">
+                  <li><Link href="/terminos" className="hover:text-[#0066FF]">Términos y Condiciones</Link></li>
+                  <li><Link href="/privacidad" className="hover:text-[#0066FF]">Política de Privacidad</Link></li>
+                </ul>
+
+                <div className="pt-2">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">SÍGUENOS</p>
+                  <div className="flex gap-4">
+                    <a href="https://facebook.com" target="_blank" className="transition-transform hover:scale-110">
+                      <svg width="40" height="40" viewBox="0 0 24 24" fill="#1877F2">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                      </svg>
+                    </a>
+                    <a href="https://instagram.com" target="_blank" className="transition-transform hover:scale-110">
+                      <svg width="40" height="40" viewBox="0 0 24 24">
+                        <defs>
+                          <linearGradient id="footer-insta-color" x1="0%" y1="100%" x2="100%" y2="0%">
+                            <stop offset="0%" style={{ stopColor: "#f09433" }} />
+                            <stop offset="25%" style={{ stopColor: "#e6683c" }} />
+                            <stop offset="50%" style={{ stopColor: "#dc2743" }} />
+                            <stop offset="75%" style={{ stopColor: "#cc2366" }} />
+                            <stop offset="100%" style={{ stopColor: "#bc1888" }} />
+                          </linearGradient>
+                        </defs>
+                        <path fill="url(#footer-insta-color)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791-4 4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-black text-slate-800 uppercase tracking-tighter mb-6">Contacto Directo</h4>
+                <div className="bg-white/90 backdrop-blur-sm rounded-[2rem] p-6 shadow-xl border-2 border-white">
+                  <p className="text-xs font-bold text-blue-500 mb-1">Escribinos al WhatsApp:</p>
+                  <a
+                    href={`https://wa.me/${ADMIN_WHATSAPP}`}
+                    target="_blank"
+                    className="flex items-center gap-2 text-lg font-black text-slate-800 hover:text-[#2FA84F] transition-colors"
+                  >
+                    +595 981 784 334
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-900/10 pt-8 mt-8 text-center">
+              <p className="text-[9px] font-black text-slate-500 uppercase tracking-[4px]">
+                © 2026 AMAZONPY CLASIFICADOS - TODOS LOS DERECHOS RESERVADOS
+              </p>
+            </div>
+          </div>
+        </footer>
+      </div>
+
+      {/* MODAL DE COMPRA */}
+      {buyOpen && selected && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-[3rem] bg-white p-8 shadow-2xl border-4 border-[#2FA84F]">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-slate-800 italic">Finalizar Pedido</h2>
+              <button onClick={() => setBuyOpen(false)} className="text-slate-400 hover:text-red-500 text-2xl">
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <input
+                value={buyerName}
+                onChange={e => setBuyerName(e.target.value)}
+                placeholder="Nombre y Apellido"
+                className="w-full rounded-2xl bg-slate-100 p-4 text-sm focus:ring-2 ring-green-400 outline-none"
+              />
+              <input
+                value={buyerWhatsapp}
+                onChange={e => setBuyerWhatsapp(e.target.value)}
+                placeholder="Tu WhatsApp"
+                className="w-full rounded-2xl bg-slate-100 p-4 text-sm focus:ring-2 ring-green-400 outline-none"
+              />
+              <input
+                value={buyerCity}
+                onChange={e => setBuyerCity(e.target.value)}
+                placeholder="Ciudad"
+                className="w-full rounded-2xl bg-slate-100 p-4 text-sm focus:ring-2 ring-green-400 outline-none"
+              />
+              <textarea
+                value={buyerAddress}
+                onChange={e => setBuyerAddress(e.target.value)}
+                placeholder="Dirección de entrega"
+                className="w-full rounded-2xl bg-slate-100 p-4 text-sm h-20 outline-none focus:ring-2 ring-green-400"
+              />
+              <button
+                onClick={createOrder}
+                disabled={buyLoading}
+                className="w-full rounded-2xl bg-[#2FA84F] py-5 text-white font-black text-sm uppercase shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50"
+              >
+                {buyLoading ? "Procesando..." : "Confirmar y enviar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast.show && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[101] bg-green-500 text-white px-6 py-3 rounded-2xl shadow-2xl font-bold animate-bounce">
+          {toast.text}
+        </div>
+      )}
+    </main>
+  );
+}

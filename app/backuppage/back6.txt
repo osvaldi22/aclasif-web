@@ -1,0 +1,168 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+
+// --- TIPOS ---
+type Listing = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price_usd: number;
+  premium_until: string | null;
+  image_url?: string | null;
+  article_code?: string | null;
+  is_active?: boolean | null;
+  moderation_status?: "pending" | "verified" | "suspended" | null;
+};
+
+type Category = {
+  slug: string;
+  name: string;
+};
+
+function premiumActive(premium_until: string | null) {
+  if (!premium_until) return false;
+  return new Date(premium_until) > new Date();
+}
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+export default function Home() {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("Cargando...");
+  
+  // SOLUCIÓN AL ERROR DE HIDRATACIÓN:
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true); // Esto activa las burbujas solo en el cliente
+    async function loadData() {
+      try {
+        const { data: listData } = await supabase
+          .from("listings")
+          .select("*")
+          .eq("is_active", true)
+          .eq("moderation_status", "verified");
+        if (listData) setItems(listData as Listing[]);
+        const { data: catData } = await supabase
+          .from("categories")
+          .select("slug,name")
+          .eq("is_active", true);
+        if (catData) setCategories(catData as Category[]);
+        setStatus("");
+      } catch (error) {
+        setStatus("Error al cargar");
+      }
+    }
+    loadData();
+  }, []);
+
+  const filtered = useMemo(() => {
+    let arr = items;
+    if (selectedCategory !== "all") arr = arr.filter((x) => x.category === selectedCategory);
+    if (q) arr = arr.filter((x) => x.title.toLowerCase().includes(q.toLowerCase()));
+    return arr;
+  }, [items, q, selectedCategory]);
+
+  return (
+    <main className="min-h-screen relative font-sans overflow-x-hidden">
+      {/* FONDO DEGRADADO */}
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{
+          background: `linear-gradient(135deg, #FF7EB3 0%, #7AFEF2 35%, #FFD166 65%, #FF6B6B 100%)`,
+          backgroundAttachment: "fixed",
+      }} />
+
+      {/* BURBUJAS FLOTANTES (Corregidas para que no den error y se muevan) */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        {mounted && Array.from({ length: 20 }).map((_, i) => (
+          <div key={i} className="absolute rounded-full opacity-60 animate-bounce"
+            style={{
+              background: ["#FF4D4D", "#F4C400", "#00D084", "#0066FF", "#FF7EB3"][i % 5],
+              width: `${12 + Math.random() * 28}px`,
+              height: `${12 + Math.random() * 28}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              transition: 'all 5s ease-in-out',
+              animationDuration: `${3 + Math.random() * 5}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <div className="relative z-10">
+        {/* HEADER */}
+        <header className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-white/40 shadow-xl">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 gap-4">
+            <h1 className="text-3xl font-black italic text-[#0066FF]">
+              AMAZON<span className="text-[#F4C400]">PY</span>
+            </h1>
+            <div className="flex-1 max-w-md">
+              <input type="text" placeholder="¿Qué buscas hoy?" className="w-full rounded-full bg-white/90 border-none px-6 py-3 shadow-inner outline-none focus:ring-4 focus:ring-blue-300"
+                value={q} onChange={(e) => setQ(e.target.value)} />
+            </div>
+            <button className="rounded-full bg-[#2FA84F] px-8 py-3 text-sm font-black text-white shadow-lg">MI PANEL</button>
+          </div>
+        </header>
+
+        {/* HERO: RECORTE CON MARGENES NEGATIVOS (TU SOLUCIÓN PERFECTA) */}
+        <section className="mx-auto max-w-5xl px-4 pt-8">
+          <div className="overflow-hidden rounded-[3rem] border-8 border-white bg-white shadow-2xl">
+            <img
+              src="/hero-amazonpy-6.png"
+              alt="Amazonpy banner"
+              className="block w-full h-auto"
+              style={{ marginTop: "-18%", marginBottom: "-16%" }}
+            />
+          </div>
+        </section>
+
+        {/* CATEGORÍAS */}
+        <section className="mx-auto max-w-6xl px-4 pt-10">
+          <div className="flex gap-3 overflow-x-auto pb-6 no-scrollbar">
+            <button onClick={() => setSelectedCategory("all")}
+              className={`rounded-full px-8 py-3 text-sm font-black shadow-lg transition-all ${
+                selectedCategory === "all" ? 'bg-[#F4C400] text-white scale-105' : 'bg-white text-gray-600'
+              }`}> Todas </button>
+            {categories.map((c) => (
+              <button key={c.slug} onClick={() => setSelectedCategory(c.slug)}
+                className={`rounded-full px-8 py-3 text-sm font-black shadow-lg transition-all ${
+                  selectedCategory === c.slug ? 'bg-[#0066FF] text-white scale-105' : 'bg-white/80 text-gray-600'
+                }`}> {c.name} </button>
+            ))}
+          </div>
+        </section>
+
+        {/* PRODUCTOS */}
+        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+          {filtered.map((it) => (
+            <article key={it.id} className="bg-white/90 rounded-[2.5rem] p-4 shadow-xl border-b-8 border-black/5 hover:-translate-y-2 transition-all">
+              <Link href={`/producto/${it.article_code || '#'}`}>
+                <div className="relative h-48 w-full overflow-hidden rounded-[2rem] bg-gray-50 mb-4 flex items-center justify-center border-2 border-white shadow-inner">
+                  {it.image_url ? (
+                    <img src={it.image_url} alt={it.title} className="h-full w-full object-contain p-3" />
+                  ) : (
+                    <div className="text-blue-100 font-black italic text-2xl">AmazonPy</div>
+                  )}
+                  {premiumActive(it.premium_until) && (
+                     <div className="absolute top-3 right-3 bg-[#F4C400] text-black text-[9px] font-black px-3 py-1 rounded-full shadow-md border-2 border-white">⭐ PREMIUM</div>
+                  )}
+                </div>
+              </Link>
+              <h3 className="font-bold text-slate-800 text-xs line-clamp-1 px-2">{it.title}</h3>
+              <p className="text-xl font-black text-[#0066FF] px-2">{formatGs(it.price_usd)}</p>
+              <button className="w-full mt-4 rounded-xl bg-[#00D084] py-3 text-white font-black text-[10px] uppercase tracking-tighter shadow-md">Comprar Ahora</button>
+            </article>
+          ))}
+        </section>
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,170 @@
+"use client";
+
+import Link from "next/link";
+import { useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+
+export default function RegisterPage() {
+  const [nombre, setNombre] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [ciudad, setCiudad] = useState("");
+  const [direccion, setDireccion] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg("");
+
+    if (
+      !nombre.trim() ||
+      !whatsapp.trim() ||
+      !ciudad.trim() ||
+      !direccion.trim() ||
+      !email.trim() ||
+      !password.trim()
+    ) {
+      setMsg("Completa todos los campos.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { data, error } = await supabase.auth.signUp({
+      email: email.trim(),
+      password: password.trim(),
+    });
+
+    if (error) {
+      setLoading(false);
+      setMsg("Error: " + error.message);
+      return;
+    }
+
+    const userId = data.user?.id;
+
+    if (userId) {
+      const { error: profileError } = await supabase.from("perfiles").upsert([
+        {
+          id: userId,
+          nombre: nombre.trim(),
+          whatsapp: whatsapp.trim(),
+          ciudad: ciudad.trim(),
+          direccion: direccion.trim(),
+        },
+      ]);
+
+      if (profileError) {
+        setLoading(false);
+        setMsg(
+          "Usuario creado, pero hubo un error al guardar el perfil: " +
+            profileError.message
+        );
+        return;
+      }
+    }
+
+    setLoading(false);
+    setMsg("Registro exitoso. Ahora ya puedes iniciar sesion.");
+
+    setNombre("");
+    setWhatsapp("");
+    setCiudad("");
+    setDireccion("");
+    setEmail("");
+    setPassword("");
+  }
+
+  return (
+    <main className="min-h-screen bg-[#0b0b0b] px-4 py-10 text-white">
+      <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121212] p-6 shadow-[0_12px_45px_rgba(0,0,0,0.45)]">
+        <h1 className="text-2xl font-black">
+          Registro de <span className="text-[#f4c400]">Vendedor</span>
+        </h1>
+
+        <p className="mt-2 text-sm text-white/70">
+          Crea tu cuenta para publicar productos en AmazonPY.
+        </p>
+
+        <form onSubmit={handleRegister} className="mt-6 grid gap-3">
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Nombre completo"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          <input
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder="WhatsApp"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          <input
+            value={ciudad}
+            onChange={(e) => setCiudad(e.target.value)}
+            placeholder="Ciudad"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          <input
+            value={direccion}
+            onChange={(e) => setDireccion(e.target.value)}
+            placeholder="Direccion"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Correo electronico"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Contrasena"
+            className="w-full rounded-2xl bg-white/5 px-4 py-3 text-sm outline-none ring-1 ring-white/10 focus:ring-[#f4c400]/60"
+          />
+
+          {msg && (
+            <div className="rounded-2xl bg-white/5 px-4 py-3 text-sm text-white/80 ring-1 ring-white/10">
+              {msg}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2 rounded-2xl bg-[#f4c400] px-4 py-3 text-sm font-bold text-black hover:brightness-110 disabled:opacity-60"
+          >
+            {loading ? "Creando cuenta..." : "Crear cuenta"}
+          </button>
+        </form>
+
+        <p className="mt-5 text-sm text-white/70">
+          Ya tienes cuenta?{" "}
+          <Link
+            href="/login"
+            className="font-semibold text-[#2FA84F] hover:underline"
+          >
+            Iniciar sesion
+          </Link>
+        </p>
+
+        <p className="mt-3 text-sm text-white/70">
+          <Link href="/" className="hover:underline">
+            Volver al inicio
+          </Link>
+        </p>
+      </div>
+    </main>
+  );
+}

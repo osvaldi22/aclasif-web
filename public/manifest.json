@@ -1,0 +1,21 @@
+{
+  "name": "Aclasif - AmazonPy",
+  "short_name": "Aclasif",
+  "description": "Comprá y vendé seguro en Paraguay",
+  "start_url": "/",
+  "display": "minimal-ui",
+  "background_color": "#0f172a",
+  "theme_color": "#F4C400",
+  "icons": [
+    {
+      "src": "/icono-app.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icono-app.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

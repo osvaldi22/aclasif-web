@@ -1,0 +1,961 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+
+type Order = {
+  id: string;
+  created_at: string | null;
+  listing_id: string | null;
+  seller_id: string | null;
+  listing_title: string | null;
+  buyer_name: string | null;
+  buyer_whatsapp: string | null;
+  buyer_email: string | null;
+  buyer_city: string | null;
+  buyer_address: string | null;
+  buyer_note: string | null;
+  price_usd: number | null;
+  service_fee_rate: number | null;
+  service_fee_usd: number | null;
+  total_usd: number | null;
+  status: string | null;
+  paid_at: string | null;
+  shipped_at: string | null;
+  delivered_at: string | null;
+  completed_at: string | null;
+  payment_proof_url: string | null;
+  admin_note: string | null;
+  order_number: number | null;
+  article_code?: string | null;
+};
+
+type PremiumRequest = {
+  id: string;
+  created_at: string | null;
+  user_id: string;
+  listing_id: string;
+  listing_title: string;
+  plan_days: number;
+  status: "pending" | "approved" | "rejected";
+  approved_at: string | null;
+  rejected_at: string | null;
+  premium_until?: string | null;
+};
+
+type ListingPremium = {
+  id: string;
+  premium_until: string | null;
+};
+
+type ListingArticleCode = {
+  id: string;
+  article_code: string | null;
+};
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+function formatOrderStatus(status?: string | null) {
+  switch (status) {
+    case "pending_payment":
+      return "Pendiente de pago";
+    case "paid":
+      return "Pagado";
+    case "shipped":
+      return "Enviado";
+    case "delivered":
+      return "Recibido";
+    case "completed":
+      return "Completado";
+    case "cancelled":
+      return "Cancelado";
+    default:
+      return status || "Sin estado";
+  }
+}
+
+function statusBadgeClass(status?: string | null) {
+  switch (status) {
+    case "pending_payment":
+      return "bg-yellow-400 text-black";
+    case "paid":
+      return "bg-[#2FA84F] text-black";
+    case "shipped":
+      return "bg-blue-500 text-white";
+    case "delivered":
+      return "bg-purple-500 text-white";
+    case "completed":
+      return "bg-[#f4c400] text-black";
+    case "cancelled":
+      return "bg-red-500 text-white";
+    default:
+      return "bg-white/10 text-white";
+  }
+}
+
+function premiumRequestBadgeClass(status: PremiumRequest["status"]) {
+  switch (status) {
+    case "pending":
+      return "bg-orange-500 text-white";
+    case "approved":
+      return "bg-[#2FA84F] text-black";
+    case "rejected":
+      return "bg-red-500 text-white";
+    default:
+      return "bg-white/10 text-white";
+  }
+}
+
+function premiumRequestLabel(status: PremiumRequest["status"]) {
+  switch (status) {
+    case "pending":
+      return "Pendiente";
+    case "approved":
+      return "Aprobado";
+    case "rejected":
+      return "Rechazado";
+    default:
+      return status;
+  }
+}
+
+function getOrderBorderClass(index: number) {
+  const borders = [
+    "border-white/70",
+    "border-orange-400/80",
+    "border-green-400/80",
+    "border-blue-400/80",
+    "border-purple-400/80",
+    "border-pink-400/80",
+  ];
+
+  return borders[index % borders.length];
+}
+
+function premiumActive(premiumUntil?: string | null) {
+  if (!premiumUntil) return false;
+  return new Date(premiumUntil).getTime() > Date.now();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "-";
+  return new Date(value).toLocaleString();
+}
+
+function addDays(baseDate: Date, days: number) {
+  const next = new Date(baseDate);
+  next.setDate(next.getDate() + days);
+  next.setHours(23, 59, 59, 999);
+  return next;
+}
+
+export default function AdminPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [premiumRequests, setPremiumRequests] = useState<PremiumRequest[]>([]);
+  const [msg, setMsg] = useState("Cargando panel admin...");
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [premiumUpdatingId, setPremiumUpdatingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAll();
+  }, []);
+
+  async function loadAll() {
+    setLoading(true);
+    setMsg("Cargando panel admin...");
+
+    await Promise.all([loadOrders(), loadPremiumRequests()]);
+
+    setLoading(false);
+    setMsg("");
+  }
+
+  async function loadOrders() {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        "id,created_at,listing_id,seller_id,listing_title,buyer_name,buyer_whatsapp,buyer_email,buyer_city,buyer_address,buyer_note,price_usd,service_fee_rate,service_fee_usd,total_usd,status,paid_at,shipped_at,delivered_at,completed_at,payment_proof_url,admin_note,order_number"
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setOrders([]);
+      setMsg("Error cargando pedidos: " + error.message);
+      return;
+    }
+
+    const orderRows = (data ?? []) as Order[];
+    const listingIds = orderRows
+      .map((order) => order.listing_id)
+      .filter((id): id is string => Boolean(id));
+
+    if (listingIds.length === 0) {
+      setOrders(orderRows);
+      return;
+    }
+
+    const { data: listingsData, error: listingsError } = await supabase
+      .from("listings")
+      .select("id,article_code")
+      .in("id", listingIds);
+
+    if (listingsError) {
+      setOrders(orderRows);
+      return;
+    }
+
+    const listings = (listingsData ?? []) as ListingArticleCode[];
+    const articleCodeMap = new Map<string, string | null>();
+
+    for (const listing of listings) {
+      articleCodeMap.set(listing.id, listing.article_code ?? null);
+    }
+
+    const ordersWithArticle = orderRows.map((order) => ({
+      ...order,
+      article_code: order.listing_id
+        ? articleCodeMap.get(order.listing_id) ?? null
+        : null,
+    }));
+
+    setOrders(ordersWithArticle);
+  }
+
+  async function loadPremiumRequests() {
+    const { data, error } = await supabase
+      .from("premium_requests")
+      .select(
+        "id,created_at,user_id,listing_id,listing_title,plan_days,status,approved_at,rejected_at"
+      )
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      setPremiumRequests([]);
+      setMsg("Error cargando solicitudes premium: " + error.message);
+      return;
+    }
+
+    const reqRows = (data ?? []) as PremiumRequest[];
+    const listingIds = reqRows
+      .map((req) => req.listing_id)
+      .filter((id): id is string => Boolean(id));
+
+    if (listingIds.length === 0) {
+      setPremiumRequests(reqRows);
+      return;
+    }
+
+    const { data: listingsData, error: listingsError } = await supabase
+      .from("listings")
+      .select("id,premium_until")
+      .in("id", listingIds);
+
+    if (!listingsError && listingsData) {
+      const listings = listingsData as ListingPremium[];
+      const premiumMap = new Map<string, string | null>();
+
+      for (const listing of listings) {
+        premiumMap.set(listing.id, listing.premium_until ?? null);
+      }
+
+      const reqsWithPremium = reqRows.map((req) => ({
+        ...req,
+        premium_until: req.listing_id
+          ? premiumMap.get(req.listing_id) ?? null
+          : null,
+      }));
+
+      setPremiumRequests(reqsWithPremium);
+    } else {
+      setPremiumRequests(reqRows);
+    }
+  }
+
+  async function updateStatus(
+    orderId: string,
+    status: "paid" | "shipped" | "delivered" | "completed"
+  ) {
+    setUpdatingId(orderId);
+
+    const updateData: {
+      status: string;
+      paid_at?: string;
+      shipped_at?: string;
+      delivered_at?: string;
+      completed_at?: string;
+    } = {
+      status,
+    };
+
+    if (status === "paid") updateData.paid_at = new Date().toISOString();
+    if (status === "shipped") updateData.shipped_at = new Date().toISOString();
+    if (status === "delivered")
+      updateData.delivered_at = new Date().toISOString();
+    if (status === "completed")
+      updateData.completed_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("orders")
+      .update(updateData)
+      .eq("id", orderId);
+
+    setUpdatingId(null);
+
+    if (error) {
+      alert("Error cambiando estado: " + error.message);
+      return;
+    }
+
+    await loadOrders();
+  }
+
+  async function approvePremium(request: PremiumRequest) {
+    const ok = window.confirm(
+      `¿Activar premium por ${request.plan_days} dias para "${request.listing_title}"?`
+    );
+    if (!ok) return;
+
+    setPremiumUpdatingId(request.id);
+
+    const { data: listingData, error: listingError } = await supabase
+      .from("listings")
+      .select("id,premium_until")
+      .eq("id", request.listing_id)
+      .single();
+
+    if (listingError || !listingData) {
+      setPremiumUpdatingId(null);
+      alert("No se pudo cargar el producto para activar premium.");
+      return;
+    }
+
+    const listing = listingData as ListingPremium;
+    const now = new Date();
+
+    const baseDate =
+      listing.premium_until && premiumActive(listing.premium_until)
+        ? new Date(listing.premium_until)
+        : now;
+
+    const nextPremiumUntil = addDays(baseDate, request.plan_days).toISOString();
+
+    const { error: updateListingError } = await supabase
+      .from("listings")
+      .update({
+        premium_until: nextPremiumUntil,
+      })
+      .eq("id", request.listing_id);
+
+    if (updateListingError) {
+      setPremiumUpdatingId(null);
+      alert("Error activando premium: " + updateListingError.message);
+      return;
+    }
+
+    const { error: updateRequestError } = await supabase
+      .from("premium_requests")
+      .update({
+        status: "approved",
+        approved_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+
+    setPremiumUpdatingId(null);
+
+    if (updateRequestError) {
+      alert("Premium activado, pero no se pudo actualizar la solicitud.");
+      return;
+    }
+
+    await loadPremiumRequests();
+  }
+
+  async function rejectPremium(request: PremiumRequest) {
+    const ok = window.confirm(
+      `¿Rechazar solicitud premium de "${request.listing_title}"?`
+    );
+    if (!ok) return;
+
+    setPremiumUpdatingId(request.id);
+
+    const { error } = await supabase
+      .from("premium_requests")
+      .update({
+        status: "rejected",
+        rejected_at: new Date().toISOString(),
+      })
+      .eq("id", request.id);
+
+    setPremiumUpdatingId(null);
+
+    if (error) {
+      alert("Error rechazando solicitud: " + error.message);
+      return;
+    }
+
+    await loadPremiumRequests();
+  }
+
+  async function logout() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  const stats = useMemo(() => {
+    const totalOrders = orders.length;
+
+    const totalVentas = orders.reduce(
+      (acc, item) => acc + Number(item.price_usd ?? 0),
+      0
+    );
+
+    const totalComision = orders.reduce(
+      (acc, item) => acc + Number(item.service_fee_usd ?? 0),
+      0
+    );
+
+    const totalCobrado = orders.reduce(
+      (acc, item) => acc + Number(item.total_usd ?? 0),
+      0
+    );
+
+    const pendingPremium = premiumRequests.filter(
+      (req) => req.status === "pending"
+    ).length;
+
+    return {
+      totalOrders,
+      totalVentas,
+      totalComision,
+      totalCobrado,
+      pendingPremium,
+    };
+  }, [orders, premiumRequests]);
+
+  const pendingPremiumRequests = useMemo(() => {
+    return premiumRequests.filter((req) => req.status === "pending");
+  }, [premiumRequests]);
+
+  return (
+    <main className="min-h-screen bg-[#0b0b0b] px-4 py-10 text-white">
+      <div className="mx-auto max-w-7xl">
+        <div className="rounded-3xl border-2 border-green-500 bg-[#121212] p-6 shadow-[0_12px_45px_rgba(0,0,0,0.45)]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h1 className="text-3xl font-black">
+                Panel <span className="text-[#f4c400]">admin</span>
+              </h1>
+              <p className="mt-2 text-white/70">
+                Aqui ves ventas, pedidos y solicitudes premium de AmazonPY.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={loadAll}
+                className="rounded-2xl bg-white/10 px-4 py-2 font-semibold transition hover:bg-white/20 active:scale-[0.98]"
+              >
+                Recargar todo
+              </button>
+
+              <Link
+                href="/admin/listings"
+                className="rounded-2xl bg-[#f4c400] px-4 py-2 font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+              >
+                Publicaciones de vendedores
+              </Link>
+
+              <Link
+                href="/"
+                className="rounded-2xl bg-white/10 px-4 py-2 font-semibold transition hover:bg-white/20 active:scale-[0.98]"
+              >
+                Volver
+              </Link>
+
+              <button
+                onClick={logout}
+                className="rounded-2xl bg-[#2FA84F] px-4 py-2 font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+              >
+                Cerrar sesion
+              </button>
+            </div>
+          </div>
+
+          {msg && (
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white shadow-md">
+              {msg}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-6 rounded-3xl border border-[#f4c400]/30 bg-[#121212] p-5 shadow-[0_12px_45px_rgba(0,0,0,0.45)]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-xl font-black">
+                Moderacion de <span className="text-[#f4c400]">publicaciones</span>
+              </h2>
+              <p className="mt-1 text-white/70">
+                Entra aqui para revisar publicaciones pendientes, verificadas o suspendidas.
+              </p>
+            </div>
+
+            <Link
+              href="/admin/listings"
+              className="rounded-2xl bg-[#f4c400] px-5 py-3 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+            >
+              Ir a revisar publicaciones
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-3xl border-2 border-green-500 bg-[#121212] p-5">
+            <p className="text-sm text-white/60">Total pedidos</p>
+            <p className="mt-2 text-3xl font-black text-[#f4c400]">
+              {stats.totalOrders}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border-2 border-green-500 bg-[#121212] p-5">
+            <p className="text-sm text-white/60">Total ventas</p>
+            <p className="mt-2 text-3xl font-black text-white">
+              {formatGs(stats.totalVentas)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border-2 border-green-500 bg-[#121212] p-5">
+            <p className="text-sm text-white/60">Total comision</p>
+            <p className="mt-2 text-3xl font-black text-[#2FA84F]">
+              {formatGs(stats.totalComision)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border-2 border-green-500 bg-[#121212] p-5">
+            <p className="text-sm text-white/60">Total cobrado</p>
+            <p className="mt-2 text-3xl font-black text-[#f4c400]">
+              {formatGs(stats.totalCobrado)}
+            </p>
+          </div>
+
+          <div className="rounded-3xl border-2 border-orange-400 bg-[#121212] p-5">
+            <p className="text-sm text-white/60">Premium pendientes</p>
+            <p className="mt-2 text-3xl font-black text-orange-400">
+              {stats.pendingPremium}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 rounded-3xl border-2 border-[#f4c400]/50 bg-[#121212] p-6 shadow-[0_12px_45px_rgba(0,0,0,0.45)]">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-black">
+                Solicitudes <span className="text-[#f4c400]">premium</span>
+              </h2>
+              <p className="mt-1 text-white/70">
+                Aqui llegan los pedidos premium de los vendedores.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-white/5 px-4 py-2 text-sm text-white/80 ring-1 ring-white/10">
+              Pendientes: <b>{pendingPremiumRequests.length}</b>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-[#101010] p-5 text-white/70">
+              Cargando solicitudes premium...
+            </div>
+          ) : premiumRequests.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-[#101010] p-5 text-white/70">
+              Todavia no hay solicitudes premium.
+            </div>
+          ) : (
+            <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {premiumRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="rounded-2xl border border-white/10 bg-[#101010] p-5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-white/50">Producto</p>
+                      <h3 className="text-lg font-bold">{request.listing_title}</h3>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${premiumRequestBadgeClass(
+                        request.status
+                      )}`}
+                    >
+                      {premiumRequestLabel(request.status)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs text-white/50">Plan pedido</p>
+                      <p className="mt-1 font-semibold text-white">
+                        {request.plan_days} dias
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs text-white/50">Fecha solicitud</p>
+                      <p className="mt-1 font-semibold text-white">
+                        {formatDateTime(request.created_at)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:col-span-2">
+                      <p className="text-xs text-white/50">User ID vendedor</p>
+                      <p className="mt-1 break-all font-semibold text-white">
+                        {request.user_id}
+                      </p>
+                    </div>
+                  </div>
+
+                  {request.status === "approved" && (
+                    <div className="mt-4 rounded-2xl border border-green-500/40 bg-green-500/10 p-4">
+                      <div className="flex flex-col gap-2">
+                        <div>
+                          <p className="text-xs text-green-200/80">
+                            Premium aprobado
+                          </p>
+                          <p className="mt-1 font-semibold text-green-100">
+                            {formatDateTime(request.approved_at)}
+                          </p>
+                        </div>
+                        {request.premium_until && (
+                          <div className="mt-2 border-t border-green-500/30 pt-2">
+                            <p className="text-xs text-yellow-200/80">
+                              Expira el
+                            </p>
+                            <p className="mt-1 font-bold text-yellow-400">
+                              {formatDateTime(request.premium_until)}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {request.status === "rejected" && (
+                    <div className="mt-4 rounded-2xl border border-red-500/40 bg-red-500/10 p-4">
+                      <p className="text-xs text-red-200/80">
+                        Solicitud rechazada
+                      </p>
+                      <p className="mt-1 font-semibold text-red-100">
+                        {formatDateTime(request.rejected_at)}
+                      </p>
+                    </div>
+                  )}
+
+                  {request.status === "pending" && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => approvePremium(request)}
+                        disabled={premiumUpdatingId === request.id}
+                        className="rounded-2xl bg-[#f4c400] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110 disabled:opacity-60"
+                      >
+                        {premiumUpdatingId === request.id
+                          ? "Activando..."
+                          : `Activar premium ${request.plan_days} dias`}
+                      </button>
+
+                      <button
+                        onClick={() => rejectPremium(request)}
+                        disabled={premiumUpdatingId === request.id}
+                        className="rounded-2xl bg-red-500 px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-60"
+                      >
+                        Rechazar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8 rounded-3xl border-2 border-green-500 bg-[#121212] p-6 shadow-[0_12px_45px_rgba(0,0,0,0.45)]">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h2 className="text-2xl font-black">
+                Todos los <span className="text-[#f4c400]">pedidos</span>
+              </h2>
+              <p className="mt-1 text-white/70">
+                Aqui puedes revisar compras, clientes, comision y estado.
+              </p>
+            </div>
+
+            <button
+              onClick={loadOrders}
+              className="rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold transition hover:bg-white/20 active:scale-[0.98]"
+            >
+              Recargar pedidos
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-[#101010] p-5 text-white/70">
+              Cargando pedidos...
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-[#101010] p-5 text-white/70">
+              Todavia no hay pedidos cargados.
+            </div>
+          ) : (
+            <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {orders.map((order, index) => (
+                <div
+                  key={order.id}
+                  className={`rounded-2xl border-2 bg-[#101010] p-5 ${getOrderBorderClass(
+                    index
+                  )}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs text-white/50">Orden</p>
+                      <h3 className="text-lg font-bold">
+                        #{order.order_number ?? "-"}
+                      </h3>
+                    </div>
+
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadgeClass(
+                        order.status
+                      )}`}
+                    >
+                      {formatOrderStatus(order.status)}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {order.status === "pending_payment" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "paid")}
+                        disabled={updatingId === order.id}
+                        className="rounded-2xl bg-[#2FA84F] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                      >
+                        {updatingId === order.id
+                          ? "Actualizando..."
+                          : "Marcar como pagado"}
+                      </button>
+                    )}
+
+                    {order.status === "paid" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "shipped")}
+                        disabled={updatingId === order.id}
+                        className="rounded-2xl bg-blue-500 px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                      >
+                        {updatingId === order.id
+                          ? "Actualizando..."
+                          : "Marcar como enviado"}
+                      </button>
+                    )}
+
+                    {order.status === "shipped" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "delivered")}
+                        disabled={updatingId === order.id}
+                        className="rounded-2xl bg-purple-500 px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                      >
+                        {updatingId === order.id
+                          ? "Actualizando..."
+                          : "Marcar como recibido"}
+                      </button>
+                    )}
+
+                    {order.status === "delivered" && (
+                      <button
+                        onClick={() => updateStatus(order.id, "completed")}
+                        disabled={updatingId === order.id}
+                        className="rounded-2xl bg-[#f4c400] px-4 py-2 text-sm font-bold text-black transition hover:brightness-110 active:scale-[0.98] disabled:opacity-60"
+                      >
+                        {updatingId === order.id
+                          ? "Actualizando..."
+                          : "Marcar como completado"}
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid gap-3 text-sm">
+                    {order.article_code && (
+                      <div className="rounded-2xl border border-[#f4c400]/40 bg-[#f4c400]/10 p-4">
+                        <p className="text-xs text-yellow-200/80">Numero de articulo</p>
+                        <p className="mt-1 font-bold text-[#f4c400]">
+                          {order.article_code}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <p className="text-xs text-white/50">Producto</p>
+                      <p className="mt-1 font-semibold text-white">
+                        {order.listing_title || "Producto sin titulo"}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Cliente</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {order.buyer_name || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">WhatsApp</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {order.buyer_whatsapp || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Email</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {order.buyer_email || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Ciudad</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {order.buyer_city || "-"}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4 md:col-span-2">
+                        <p className="text-xs text-white/50">Direccion</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {order.buyer_address || "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {order.buyer_note && (
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Observacion</p>
+                        <p className="mt-1 text-white">{order.buyer_note}</p>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Monto vendedor</p>
+                        <p className="mt-1 font-bold text-[#f4c400]">
+                          {formatGs(order.price_usd)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Comision</p>
+                        <p className="mt-1 font-bold text-white">
+                          {formatGs(order.service_fee_usd)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Total cobrado</p>
+                        <p className="mt-1 font-bold text-[#2FA84F]">
+                          {formatGs(order.total_usd)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Fecha pedido</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {formatDateTime(order.created_at)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <p className="text-xs text-white/50">Seller ID</p>
+                        <p className="mt-1 break-all font-semibold text-white">
+                          {order.seller_id || "-"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {order.paid_at && (
+                      <div className="rounded-2xl border border-green-500/40 bg-green-500/10 p-4">
+                        <p className="text-xs text-green-200/80">
+                          Pago confirmado
+                        </p>
+                        <p className="mt-1 font-semibold text-green-100">
+                          {formatDateTime(order.paid_at)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.shipped_at && (
+                      <div className="rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4">
+                        <p className="text-xs text-blue-200/80">Enviado</p>
+                        <p className="mt-1 font-semibold text-blue-100">
+                          {formatDateTime(order.shipped_at)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.delivered_at && (
+                      <div className="rounded-2xl border border-purple-500/40 bg-purple-500/10 p-4">
+                        <p className="text-xs text-purple-200/80">Recibido</p>
+                        <p className="mt-1 font-semibold text-purple-100">
+                          {formatDateTime(order.delivered_at)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.completed_at && (
+                      <div className="rounded-2xl border border-[#f4c400]/40 bg-[#f4c400]/10 p-4">
+                        <p className="text-xs text-yellow-200/80">
+                          Completado
+                        </p>
+                        <p className="mt-1 font-semibold text-yellow-100">
+                          {formatDateTime(order.completed_at)}
+                        </p>
+                      </div>
+                    )}
+
+                    {order.payment_proof_url && (
+                      <div className="rounded-2xl border border-green-700 bg-green-900/40 p-4">
+                        <p className="text-xs text-green-200/80">
+                          Comprobante
+                        </p>
+                        <a
+                          href={order.payment_proof_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-block font-semibold text-green-300 underline"
+                        >
+                          Ver comprobante
+                        </a>
+                      </div>
+                    )}
+
+                    {order.admin_note && (
+                      <div className="rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-4">
+                        <p className="text-xs text-yellow-200/80">Nota admin</p>
+                        <p className="mt-1 text-sm text-yellow-100">
+                          {order.admin_note}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}
