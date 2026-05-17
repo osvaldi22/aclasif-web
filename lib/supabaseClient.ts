@@ -1,6 +1,9 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from '@supabase/supabase-js';
 
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Tu URL real de Supabase
+const supabaseUrl = 'https://udllcgofuavvpqmmvpfd.supabase.co';
+
+// Tu clave pública real (Publishable Key)
+const supabaseAnonKey = 'sb_publishable_BgTCv9VnfCJbhbZUXMuB2A_eCpnUk3O';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
