@@ -212,7 +212,7 @@ export default function NewProductPage() {
       setLoadingStep("moderating");
       setMsg("Producto guardado. La IA está analizando tu anuncio...");
       try {
-        await fetch("https://aclasif-chatbot.onrender.com/api/moderar-listing", {
+        await fetch("http://localhost:5000/api/moderar-listing", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ listing_id: insertedData.id }),
