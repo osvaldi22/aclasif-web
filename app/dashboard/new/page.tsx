@@ -57,7 +57,6 @@ export default function NewProductPage() {
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
   
-  // NUEVOS ESTADOS PARA STOCK Y CONDICIÓN
   const [stock, setStock] = useState("1");
   const [condicion, setCondicion] = useState("nuevo");
   const [detallesCondicion, setDetallesCondicion] = useState("");
@@ -89,11 +88,6 @@ export default function NewProductPage() {
       setCategories(data as Category[]);
       if (data.length > 0) setCategory(data[0].slug);
     }
-  }
-
-  async function logout() {
-    await supabase.auth.signOut();
-    window.location.href = "/";
   }
 
   const handleImageClick = () => {
@@ -134,7 +128,6 @@ export default function NewProductPage() {
     if (!user) { setMsg("Debes iniciar sesion."); return; }
     if (!title.trim() || !description.trim() || !category.trim() || !price.trim()) { setMsg("Completa todos los campos."); return; }
 
-    // VALIDACIÓN DE STOCK Y CONDICIÓN
     const parsedStock = parseInt(stock);
     if (isNaN(parsedStock) || parsedStock < 1) {
       setMsg("El stock debe ser de al menos 1 unidad.");
@@ -185,7 +178,6 @@ export default function NewProductPage() {
       setLoadingStep("idle"); setMsg(err.message); return;
     }
 
-    // GUARDAMOS TODO EN LA BASE DE DATOS INCLUYENDO STOCK Y CONDICIÓN
     const { data: insertedData, error } = await supabase.from("listings").insert([
       {
         user_id: user.id,
@@ -283,48 +275,24 @@ export default function NewProductPage() {
             <form onSubmit={publicar} className="mt-8 grid gap-3">
               <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titulo" className="field-soft rounded-2xl px-4 py-3 text-slate-800 outline-none" required />
               
-              {/* FILA DE STOCK Y CONDICIÓN */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-bold text-slate-500 ml-2 mb-1 block">Cantidad en Stock</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={stock} 
-                    onChange={(e) => setStock(e.target.value)} 
-                    className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" 
-                    required 
-                  />
+                  <input type="number" min="1" value={stock} onChange={(e) => setStock(e.target.value)} className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" required />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-slate-500 ml-2 mb-1 block">Condición del Artículo</label>
-                  <select 
-                    value={condicion} 
-                    onChange={(e) => {
-                      setCondicion(e.target.value);
-                      if(e.target.value === "nuevo") setDetallesCondicion(""); // Limpiamos detalles si vuelve a nuevo
-                    }} 
-                    className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" 
-                    required
-                  >
+                  <select value={condicion} onChange={(e) => { setCondicion(e.target.value); if(e.target.value === "nuevo") setDetallesCondicion(""); }} className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" required>
                     <option value="nuevo">Nuevo (Sin uso)</option>
                     <option value="usado">Usado</option>
                   </select>
                 </div>
               </div>
 
-              {/* CUADRO QUE SOLO APARECE SI ES USADO */}
               {condicion === "usado" && (
                 <div className="animate-fade-in">
                   <label className="text-xs font-bold text-orange-600 ml-2 mb-1 block">⚠ Explica los detalles de uso o defectos (Obligatorio)</label>
-                  <textarea 
-                    value={detallesCondicion} 
-                    onChange={(e) => setDetallesCondicion(e.target.value)} 
-                    placeholder="Ej: Tiene un rayón en la pantalla, se usó por 6 meses, le falta el cargador original..." 
-                    rows={2} 
-                    className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none border-orange-400 focus:ring-4 focus:ring-orange-500/30 bg-orange-50" 
-                    required 
-                  />
+                  <textarea value={detallesCondicion} onChange={(e) => setDetallesCondicion(e.target.value)} placeholder="Ej: Tiene un rayón en la pantalla..." rows={2} className="field-soft w-full rounded-2xl px-4 py-3 text-slate-800 outline-none border-orange-400 focus:ring-4 focus:ring-orange-500/30 bg-orange-50" required />
                 </div>
               )}
 
@@ -334,7 +302,6 @@ export default function NewProductPage() {
               </select>
 
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripcion General" rows={4} className="field-soft rounded-2xl px-4 py-3 text-slate-800 outline-none" required />
-              
               <input value={price} onChange={(e) => setPrice(formatPriceInput(e.target.value))} inputMode="numeric" placeholder="Precio que quieres recibir en Gs." className="field-soft rounded-2xl px-4 py-3 text-slate-800 outline-none" required />
 
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3 mt-2">
@@ -343,23 +310,9 @@ export default function NewProductPage() {
                 <div className="mini-card-yellow rounded-2xl p-4"><p className="text-xs text-yellow-800/80">Precio publicado</p><p className="mt-1 text-lg font-bold text-[#F4C400]">{formatGs(finalPrice)}</p></div>
               </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileChange}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFileChange} className="hidden" />
 
-              <button
-                type="button"
-                onClick={handleImageClick}
-                onMouseEnter={() => setFileHover(true)}
-                onMouseLeave={() => setFileHover(false)}
-                disabled={openingImage || loadingStep !== "idle"}
-                className={`rounded-2xl px-4 py-4 text-left transition border-2 border-dashed ${fileHover ? "border-[#F4C400] bg-yellow-50/50 text-[#F4C400]" : "border-slate-300 bg-white/50 text-slate-700"}`}
-              >
+              <button type="button" onClick={handleImageClick} onMouseEnter={() => setFileHover(true)} onMouseLeave={() => setFileHover(false)} disabled={openingImage || loadingStep !== "idle"} className={`rounded-2xl px-4 py-4 text-left transition border-2 border-dashed ${fileHover ? "border-[#F4C400] bg-yellow-50/50 text-[#F4C400]" : "border-slate-300 bg-white/50 text-slate-700"}`}>
                 {openingImage ? "⏳ Abriendo galería..." : images.length > 0 ? (
                   <div className="flex flex-col gap-1">
                     <span className="font-black text-green-600">✅ {images.length} {images.length === 1 ? "imagen seleccionada" : "imágenes seleccionadas"}</span>
@@ -371,9 +324,19 @@ export default function NewProductPage() {
               <div className="warning-card rounded-2xl px-4 py-3 text-sm font-semibold text-yellow-700">⚠ Advertencia: no se permite datos de contacto en el titulo o descripcion.</div>
               {contactError && <div className="error-card rounded-2xl px-4 py-3 text-sm font-semibold text-red-700">{contactError}</div>}
 
-              <button type="submit" disabled={loadingStep !== "idle"} className="mt-2 rounded-2xl bg-[#F4C400] px-4 py-4 font-bold text-black shadow-lg hover:brightness-110 flex justify-center items-center gap-2">
-                {loadingStep === "saving" && "Paso 1: Guardando imágenes..."}
-                {loadingStep === "moderating" && "Paso 2: IA Moderando..."}
+              <button type="submit" disabled={loadingStep !== "idle"} className="mt-2 rounded-2xl bg-[#F4C400] px-4 py-4 font-bold text-black shadow-lg hover:brightness-110 flex justify-center items-center gap-2 transition-all">
+                {loadingStep === "saving" && (
+                  <>
+                    <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Paso 1: Guardando producto...
+                  </>
+                )}
+                {loadingStep === "moderating" && (
+                  <>
+                    <svg className="w-5 h-5 animate-spin text-black" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    Moderando Favor espere
+                  </>
+                )}
                 {loadingStep === "idle" && "Publicar producto"}
               </button>
             </form>
