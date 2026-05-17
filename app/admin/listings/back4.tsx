@@ -623,11 +623,11 @@ export default function AdminListingsPage() {
                           {isOpen ? "Ocultar detalle" : "Ver detalle"}
                         </button>
 
-                        {/* BOTÓN DE MODERACIÓN CON IA CORREGIDO */}
+                        {/* BOTÓN DE MODERACIÓN CON IA */}
                         <button
                           onClick={async () => {
                             try {
-                              const res = await fetch("/api/moderar-listing", {
+                              const res = await fetch("http://localhost:5000/api/moderar-listing", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ listing_id: item.id }),

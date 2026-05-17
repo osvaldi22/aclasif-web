@@ -49,8 +49,7 @@ export default function AclasifChat() {
     setLoading(true);
 
     try {
-      // AQUÍ ESTÁ EL CAMBIO: Ruta relativa para internet
-      const res = await fetch("/api/chat-web", {
+      const res = await fetch("http://localhost:5000/api/chat-web", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mensaje: text, session_id: sessionId }),
