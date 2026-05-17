@@ -50,7 +50,7 @@ export default function AclasifChat() {
 
     try {
       // AQUÍ ESTÁ EL CAMBIO: Ruta relativa para internet
-      const res = await fetch("/api/chat-web", {
+      const res = await fetch("https://aclasif-chatbot.onrender.com/api/chat-web", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mensaje: text, session_id: sessionId }),

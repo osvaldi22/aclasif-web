@@ -38,7 +38,7 @@ interface CompraInfo {
 }
 
 // AQUÍ ESTÁ EL CAMBIO: Ruta vacía para que use la ruta relativa de Vercel
-const API_URL = "";
+const API_URL = "const API_URL = "https://aclasif-chatbot.onrender.com";
 
 function limpiar(valor?: string) {
   if (!valor || valor.trim() === "") {

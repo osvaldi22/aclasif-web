@@ -627,7 +627,7 @@ export default function AdminListingsPage() {
                         <button
                           onClick={async () => {
                             try {
-                              const res = await fetch("/api/moderar-listing", {
+                              const res = await fetch("https://aclasif-chatbot.onrender.com/api/moderar-listing", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ listing_id: item.id }),
