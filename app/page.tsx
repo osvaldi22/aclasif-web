@@ -563,7 +563,7 @@ export default function Home() {
         </section>
 
         {/* GRILLA DE PRODUCTOS */}
-        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-2 lg:grid-cols-4 gap-8">
+        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {filtered.map((it) => (
             <div key={it.id} className="card-shell">
               <article className="group card-inner-wave">
