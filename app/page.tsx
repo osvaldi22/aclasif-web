@@ -351,25 +351,6 @@ export default function Home() {
             letter-spacing: -1px;
           }
 
-          .cat-menu-glow {
-            border-radius: 26px;
-          }
-
-          .cat-btn-glow {
-            min-width: 112px;
-            height: 88px;
-            border-radius: 24px;
-          }
-
-          .cat-icon-bubble {
-            width: 42px;
-            height: 42px;
-          }
-
-          .cat-title-glow {
-            font-size: 12px;
-          }
-
           .card-shell {
             padding: 10px;
           }
@@ -423,6 +404,64 @@ export default function Home() {
         .footer-social { width: 48px; height: 48px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); border: 2px solid rgba(255,255,255,0.22); box-shadow: 0 8px 18px rgba(0,0,0,0.24), inset 0 3px 7px rgba(255,255,255,0.30); transition: transform 0.22s ease, filter 0.22s ease; }
         .footer-social:hover { transform: translateY(-5px) rotate(-3deg) scale(1.08); filter: brightness(1.18); }
         .footer-bottom-glass { border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
+
+        @media (max-width: 767px) {
+          .cat-menu-glow {
+            padding: 8px !important;
+            gap: 7px !important;
+            border-radius: 18px !important;
+          }
+
+          .cat-btn-glow {
+            min-width: 74px !important;
+            width: 74px !important;
+            height: 58px !important;
+            border-radius: 16px !important;
+            border-width: 2px !important;
+            gap: 3px !important;
+            box-shadow:
+              0 5px 0 rgba(0,0,0,0.18),
+              0 10px 16px rgba(0,0,0,0.24),
+              inset 0 3px 6px rgba(255,255,255,0.42),
+              inset 0 -5px 8px rgba(0,0,0,0.18) !important;
+          }
+
+          .cat-btn-glow::before {
+            top: 4px !important;
+            left: 8px !important;
+            right: 8px !important;
+            height: 30% !important;
+          }
+
+          .cat-icon-bubble {
+            width: 28px !important;
+            height: 28px !important;
+          }
+
+          .cat-icon-bubble svg {
+            width: 18px !important;
+            height: 18px !important;
+          }
+
+          .cat-title-glow {
+            font-size: 9px !important;
+            line-height: 1 !important;
+            max-width: 68px !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+          }
+
+          .cat-btn-selected {
+            transform: translateY(-2px) scale(1.03) !important;
+            box-shadow:
+              0 0 0 3px rgba(255,255,255,0.25),
+              0 0 16px rgba(255,255,255,0.32),
+              0 6px 0 rgba(0,0,0,0.18),
+              0 12px 18px rgba(0,0,0,0.28),
+              inset 0 3px 6px rgba(255,255,255,0.45),
+              inset 0 -5px 8px rgba(0,0,0,0.18) !important;
+          }
+        }
       `}</style>
 
       {/* FONDO NUEVO ILUSTRADO */}
