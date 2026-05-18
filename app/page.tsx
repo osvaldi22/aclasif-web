@@ -1,3 +1,403 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabaseClient";
+import AclasifChat from "./components/AclasifChat";
+import AclasifStickyDock from "./components/AclasifStickyDock";
+import { useRouter } from "next/navigation";
+
+type Listing = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  price_usd: number;
+  premium_until: string | null;
+  image_url?: string | null;
+  article_code?: string | null;
+  is_active?: boolean | null;
+  moderation_status?: "pending" | "verified" | "suspended" | null;
+  created_at?: string;
+  stock?: number;
+  condicion?: string;
+  detalles_condicion?: string | null;
+};
+
+type Category = { slug: string; name: string };
+type Toast = { show: boolean; text: string };
+
+const ADMIN_WHATSAPP = "595981784334";
+
+const iconMap: { [key: string]: string } = {
+  "Electrónica": "🎧", "electronica": "🎧",
+  "Hogar": "🏠", "hogar": "🏠",
+  "Moda": "👕", "moda": "👕",
+  "Calzados": "👟", "calzados": "👟",
+  "Repuestos": "🔧", "repuestos": "🔧",
+  "Mascotas": "🐶", "mascotas": "🐶",
+  "Juguetes": "🧸", "juguetes": "🧸",
+  "Deportes": "⚽", "deportes": "⚽",
+  "Perfumes": "✨", "perfumes": "✨",
+  "Accesorios": "⌚", "accesorios": "⌚",
+  "Fitness": "💪", "fitness": "💪",
+  "Relojes": "🕐", "relojes": "🕐",
+  "Ropa": "👔", "ropa": "👔",
+};
+
+const categoryColors: { [key: string]: string } = {
+  all: "#FF7A00",
+  Electrónica: "#3B82F6", electronica: "#3B82F6",
+  Hogar: "#10B981", hogar: "#10B981",
+  Moda: "#A855F7", moda: "#A855F7",
+  Calzados: "#F59E0B", calzados: "#F59E0B",
+  Repuestos: "#EF4444", repuestos: "#EF4444",
+  Mascotas: "#14B8A6", mascotas: "#14B8A6",
+  Juguetes: "#F97316", juguetes: "#F97316",
+  Deportes: "#22C55E", deportes: "#22C55E",
+  Perfumes: "#EC4899", perfumes: "#EC4899",
+  Accesorios: "#6366F1", accesorios: "#6366F1",
+  Fitness: "#8B5CF6", fitness: "#8B5CF6",
+  Relojes: "#06B67F", relojes: "#06B67F",
+  Ropa: "#F43F5E", ropa: "#F43F5E"
+};
+
+function getIcon(catName: string) { return iconMap[catName] || "📦"; }
+
+function CategoryVisualIcon({ name }: { name: string }) {
+  const n = name.toLowerCase();
+
+  if (n.includes("electr")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M16 36v-8c0-9 7-16 16-16s16 7 16 16v8" stroke="currentColor" strokeWidth="7" strokeLinecap="round" />
+        <path d="M16 36v11c0 3 2 5 5 5h3V34h-3c-3 0-5 2-5 5z" fill="currentColor" />
+        <path d="M48 36v11c0 3-2 5-5 5h-3V34h3c3 0 5 2 5 5z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (n.includes("fitness")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M12 36h7V24h8v12h10V24h8v12h7v8h-7v8h-8v-8H27v8h-8v-8h-7v-8z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (n.includes("hogar")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M10 31 32 13l22 18" stroke="currentColor" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M17 29v24h30V29" stroke="currentColor" strokeWidth="7" strokeLinejoin="round" />
+        <path d="M27 53V39h10v14" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (n.includes("perfume")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M26 10h12v10H26V10z" fill="currentColor" />
+        <path d="M22 22h20c5 0 9 4 9 9v16c0 5-4 9-9 9H22c-5 0-9-4-9-9V31c0-5 4-9 9-9z" stroke="currentColor" strokeWidth="6" />
+        <path d="M25 36h14" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+        <path d="M48 12l2 5 5 2-5 2-2 5-2-5-5-2 5-2 2-5z" fill="currentColor" />
+      </svg>
+    );
+  }
+  if (n.includes("reloj")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <circle cx="32" cy="32" r="20" stroke="currentColor" strokeWidth="7" />
+        <path d="M32 20v13l9 6" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (n.includes("ropa") || n.includes("moda")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M23 13h18l8 7 8 4-6 11-7-3v20H20V32l-7 3-6-11 8-4 8-7z" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
+        <path d="M25 14c1 5 4 8 7 8s6-3 7-8" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (n.includes("calzado")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M12 39c10 2 16-4 20-14l8 12h8c6 0 10 4 10 9v5H14c-5 0-8-4-8-8v-5l6 1z" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (n.includes("accesorio")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <circle cx="32" cy="32" r="17" stroke="currentColor" strokeWidth="7" />
+        <path d="M32 17V8M32 56v-9M47 32h9M8 32h9" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+        <path d="M32 23v10l7 5" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (n.includes("suplemento")) {
+    return (
+      <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+        <path d="M22 15h20l4 7v28c0 4-3 7-7 7H25c-4 0-7-3-7-7V22l4-7z" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
+        <path d="M24 30h16M32 22v16" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 64" className="h-8 w-8" fill="none">
+      <path d="M14 20 32 10l18 10v24L32 54 14 44V20z" stroke="currentColor" strokeWidth="6" strokeLinejoin="round" />
+      <path d="M14 20l18 10 18-10M32 30v24" stroke="currentColor" strokeWidth="5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function premiumActive(premium_until: string | null) {
+  if (!premium_until) return false;
+  return new Date(premium_until) > new Date();
+}
+
+function formatGs(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  return `Gs. ${n.toLocaleString("es-PY")}`;
+}
+
+export default function Home() {
+  const router = useRouter();
+
+  const [items, setItems] = useState<Listing[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("Cargando...");
+  const [sessionUser, setSessionUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [selected, setSelected] = useState<Listing | null>(null);
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerWhatsapp, setBuyerWhatsapp] = useState("");
+  const [buyerEmail, setBuyerEmail] = useState("");
+  const [buyerCity, setBuyerCity] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [toast, setToast] = useState<Toast>({ show: false, text: "" });
+
+  const [defectModal, setDefectModal] = useState<{ show: boolean; text: string }>({ show: false, text: "" });
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setIsInstallable(false);
+    }
+    setDeferredPrompt(null);
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    async function load() {
+      setStatus("Cargando...");
+      const { data: listData } = await supabase
+        .from("listings")
+        .select("*")
+        .eq("is_active", true)
+        .eq("moderation_status", "verified");
+
+      if (listData) setItems(listData as Listing[]);
+
+      const { data: catData } = await supabase
+        .from("categories")
+        .select("slug,name")
+        .eq("is_active", true)
+        .order("name");
+
+      if (catData) setCategories(catData as Category[]);
+
+      const { data: user } = await supabase.auth.getUser();
+      setSessionUser(user.user ?? null);
+      setStatus("");
+    }
+
+    load();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  async function createOrder() {
+    if (!selected || !buyerName || !buyerWhatsapp || !buyerCity || !buyerAddress) return;
+    setBuyLoading(true);
+
+    const { data, error } = await supabase
+      .from("orders")
+      .insert([{
+        listing_id: selected.id,
+        listing_title: selected.title,
+        price_usd: selected.price_usd,
+        buyer_name: buyerName,
+        buyer_whatsapp: buyerWhatsapp,
+        buyer_email: buyerEmail,
+        buyer_city: buyerCity,
+        buyer_address: buyerAddress,
+        status: "pending_payment"
+      }])
+      .select("order_number")
+      .single();
+
+    if (!error) {
+      const currentStock = selected.stock || 1;
+      const newStock = Math.max(0, currentStock - 1);
+      
+      await supabase
+        .from("listings")
+        .update({ stock: newStock })
+        .eq("id", selected.id);
+
+      setBuyOpen(false);
+      setToast({ show: true, text: `Pedido #${data.order_number} listo. Redirigiendo al chat...` });
+      
+      setTimeout(() => {
+        const params = new URLSearchParams();
+        params.set("order", data.order_number);
+        params.set("producto", selected.title);
+        params.set("nombre", buyerName);
+        params.set("whatsapp", buyerWhatsapp);
+        if (buyerEmail) params.set("email", buyerEmail);
+        router.push(`/chat?${params.toString()}`);
+        setToast({ show: false, text: "" });
+      }, 2000);
+    }
+
+    setBuyLoading(false);
+  }
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setSessionUser(null);
+  };
+
+  const filtered = useMemo(() => {
+    return items
+      .filter(
+        (x) =>
+          (selectedCategory === "all" || x.category === selectedCategory) &&
+          (x.title.toLowerCase().includes(q.toLowerCase()) ||
+            (x.article_code || "").toLowerCase().includes(q.toLowerCase()))
+      )
+      .sort((a, b) => {
+        const aPrem = premiumActive(a.premium_until);
+        const bPrem = premiumActive(b.premium_until);
+        if (aPrem && !bPrem) return -1;
+        if (!aPrem && bPrem) return 1;
+        const dateA = new Date(a.created_at || 0).getTime();
+        const dateB = new Date(b.created_at || 0).getTime();
+        return dateB - dateA; 
+      });
+  }, [items, q, selectedCategory]);
+
+  return (
+    <main className="min-h-screen relative font-sans overflow-x-hidden bg-slate-900">
+      <style jsx global>{`
+        @keyframes float { 0% { transform: translate(0,0); } 50% { transform: translate(15px, -30px); } 100% { transform: translate(0,0); } }
+        .bubble-float { animation: float linear infinite; }
+        .topbar-hero { background: linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.62)), radial-gradient(circle at top left, rgba(0,102,255,0.18), transparent 32%), radial-gradient(circle at top right, rgba(255,180,0,0.20), transparent 34%); backdrop-filter: blur(18px); border-bottom: 2px solid rgba(255,255,255,0.45); box-shadow: 0 12px 34px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.72); }
+        .brand-3d { position: relative; display: inline-flex; flex-direction: column; line-height: 0.88; text-decoration: none; cursor: pointer; transform-style: preserve-3d; transition: transform 0.25s ease, filter 0.25s ease; }
+        .brand-3d:hover { transform: translateY(-3px) scale(1.04) rotate(-1deg); filter: saturate(1.18) brightness(1.06); }
+        .brand-by { font-size: 13px; font-weight: 950; color: #0f172a; margin-left: 4px; margin-bottom: 2px; text-shadow: 0 1px 0 rgba(255,255,255,0.85), 0 2px 4px rgba(0,0,0,0.22); }
+        .brand-amazon { font-size: 31px; font-weight: 950; font-style: italic; letter-spacing: -1.4px; color: #0066FF; text-shadow: 0 1px 0 #ffffff, 0 2px 0 #9bc7ff, 0 4px 0 #004bbd, 0 7px 14px rgba(0,102,255,0.45); }
+        .brand-py { color: #F4C400; text-shadow: 0 1px 0 #ffffff, 0 2px 0 #ffe98a, 0 4px 0 #cc8d00, 0 7px 14px rgba(244,196,0,0.50); }
+        .search-hero { background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.86)); border: 2px solid rgba(255,255,255,0.72); box-shadow: inset 0 3px 8px rgba(0,0,0,0.10), 0 8px 18px rgba(0,0,0,0.12); transition: transform 0.25s ease, box-shadow 0.25s ease; }
+        .search-hero:focus { transform: translateY(-2px); box-shadow: inset 0 3px 8px rgba(0,0,0,0.10), 0 0 0 5px rgba(0,102,255,0.22), 0 12px 24px rgba(0,102,255,0.16); }
+        .nav-action-btn { position: relative; overflow: hidden; cursor: pointer; border: 3px solid rgba(255,255,255,0.62); border-radius: 999px; padding: 10px 18px; font-size: 12px; font-weight: 950; color: white; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; text-decoration: none; box-shadow: 0 7px 0 rgba(0,0,0,0.20), 0 14px 22px rgba(0,0,0,0.25), inset 0 4px 8px rgba(255,255,255,0.42), inset 0 -6px 10px rgba(0,0,0,0.18); text-shadow: 0 2px 2px rgba(0,0,0,0.40), 0 0 8px rgba(255,255,255,0.32); transition: transform 0.22s ease, filter 0.22s ease, box-shadow 0.22s ease; }
+        @media (max-width: 767px) {
+          .nav-action-btn {
+            padding: 6px 7px;
+            font-size: 9px;
+            gap: 3px;
+            border-width: 2px;
+          }
+
+          .nav-action-btn .nav-icon-dot {
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+          }
+
+          .brand-by {
+            font-size: 9px;
+          }
+
+          .brand-amazon {
+            font-size: 23px;
+            letter-spacing: -1px;
+          }
+        }
+        .nav-action-btn::before { content: ""; position: absolute; top: 5px; left: 14px; right: 14px; height: 35%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.05)); pointer-events: none; }
+        .nav-action-btn:hover { transform: translateY(-4px) scale(1.06); filter: brightness(1.14) saturate(1.2); }
+        .nav-action-btn:active { transform: translateY(2px) scale(0.98); }
+        .nav-panel-btn { background: linear-gradient(135deg, #1F8BFF 0%, #0066FF 48%, #1437D9 100%); }
+        .nav-login-btn { background: linear-gradient(135deg, #12D88F 0%, #0BAF73 45%, #066A48 100%); }
+        .nav-register-btn { background: linear-gradient(135deg, #FFB000 0%, #FF6A00 45%, #FF2D00 100%); }
+        .nav-logout-btn { background: linear-gradient(135deg, #FF5D7A 0%, #EF174B 48%, #B90F35 100%); padding: 9px 14px; font-size: 11px; }
+        .nav-icon-dot { position: relative; z-index: 1; width: 22px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95), rgba(255,255,255,0.20) 38%, rgba(0,0,0,0.12) 100%); box-shadow: inset 0 2px 4px rgba(255,255,255,0.45), inset 0 -3px 5px rgba(0,0,0,0.16), 0 2px 5px rgba(0,0,0,0.20); font-size: 13px; }
+        .nav-label { position: relative; z-index: 1; }
+        .card-shell { position: relative; padding: 14px; background: linear-gradient(180deg, #bddcff 0%, #9ecbfd 100%); box-shadow: 0 18px 40px rgba(74, 136, 230, 0.28), 0 0 0 2px rgba(255,255,255,0.28) inset; transition: transform 0.25s ease, box-shadow 0.25s ease; overflow: hidden; clip-path: polygon(8% 2%, 18% 0%, 32% 3%, 50% 1%, 68% 4%, 82% 0%, 92% 3%, 98% 10%, 100% 22%, 98% 34%, 100% 50%, 97% 66%, 100% 80%, 95% 92%, 84% 98%, 70% 100%, 54% 98%, 38% 100%, 22% 97%, 10% 100%, 2% 92%, 0% 78%, 3% 62%, 0% 48%, 2% 34%, 0% 20%, 4% 8%); }
+        .card-shell:hover { transform: translateY(-10px) scale(1.02); box-shadow: 0 26px 54px rgba(116, 173, 255, 0.28), 0 0 0 2px rgba(255,255,255,0.45) inset; }
+        .card-shell > * { position: relative; z-index: 1; }
+        .card-inner-wave { background: rgba(255,255,255,0.92); padding: 1.25rem; display: flex; flex-direction: column; height: 100%; box-shadow: 0 10px 24px rgba(0,0,0,0.08); clip-path: polygon(8% 2%, 18% 0%, 32% 3%, 50% 1%, 68% 4%, 82% 0%, 92% 3%, 98% 10%, 100% 22%, 98% 34%, 100% 50%, 97% 66%, 100% 80%, 95% 92%, 84% 98%, 70% 100%, 54% 98%, 38% 100%, 22% 97%, 10% 100%, 2% 92%, 0% 78%, 3% 62%, 0% 48%, 2% 34%, 0% 20%, 4% 8%); }
+        .login-shell { background: linear-gradient(180deg, #9fcbff 0%, #7eb7f5 100%); border: 3px solid rgba(120, 177, 245, 0.95); box-shadow: 0 18px 40px rgba(58, 116, 204, 0.30), 0 0 0 2px rgba(255,255,255,0.16) inset; }
+        .login-inner { background: rgba(255,255,255,0.93); border: 1px solid rgba(255,255,255,0.80); box-shadow: 0 10px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.60); }
+        .field-soft { background: rgba(255,255,255,0.88); border: 2px solid rgba(47,168,79,0.75); box-shadow: 0 4px 14px rgba(47,168,79,0.10), inset 0 1px 0 rgba(255,255,255,0.65); }
+        .cat-menu-glow { background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.07)), radial-gradient(circle at top left, rgba(255,122,0,0.25), transparent 35%), radial-gradient(circle at top right, rgba(0,209,255,0.20), transparent 35%); border: 2px solid rgba(255,255,255,0.30); box-shadow: 0 18px 40px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.35); border-radius: 34px; }
+        .cat-btn-glow { position: relative; overflow: hidden; min-width: 118px; height: 96px; border-radius: 28px; border: 3px solid rgba(255,255,255,0.55); box-shadow: 0 9px 0 rgba(0,0,0,0.20), 0 18px 26px rgba(0,0,0,0.30), inset 0 5px 9px rgba(255,255,255,0.48), inset 0 -8px 12px rgba(0,0,0,0.22); text-shadow: 0 2px 2px rgba(0,0,0,0.45), 0 0 8px rgba(255,255,255,0.45); }
+        .cat-btn-glow::before { content: ""; position: absolute; top: 7px; left: 12px; right: 12px; height: 35%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(255,255,255,0.06)); pointer-events: none; }
+        .cat-icon-bubble { width: 48px; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95), rgba(255,255,255,0.18) 35%, rgba(0,0,0,0.10) 100%); box-shadow: inset 0 4px 8px rgba(255,255,255,0.45), inset 0 -6px 10px rgba(0,0,0,0.18), 0 4px 10px rgba(0,0,0,0.25); }
+        .cat-title-glow { font-size: 13px; line-height: 1; font-weight: 950; letter-spacing: -0.2px; color: white; text-align: center; text-shadow: 0 2px 2px rgba(0,0,0,0.55), 0 0 9px rgba(255,255,255,0.45); }
+        .cat-btn-glow:hover { transform: translateY(-4px) scale(1.06); filter: brightness(1.18) saturate(1.28); }
+        .cat-btn-selected { transform: translateY(-5px) scale(1.08); border-color: white; box-shadow: 0 0 0 5px rgba(255,255,255,0.32), 0 0 28px rgba(255,255,255,0.45), 0 10px 0 rgba(0,0,0,0.22), 0 22px 34px rgba(0,0,0,0.35), inset 0 5px 9px rgba(255,255,255,0.52), inset 0 -8px 12px rgba(0,0,0,0.22); }
+        .footer-magic { position: relative; overflow: hidden; background: radial-gradient(circle at 12% 18%, rgba(255,122,0,0.24), transparent 28%), radial-gradient(circle at 82% 20%, rgba(0,209,255,0.25), transparent 30%), radial-gradient(circle at 55% 88%, rgba(168,85,247,0.20), transparent 34%), linear-gradient(180deg, rgba(5,10,30,0.96), rgba(7,15,42,0.98)); border-top: 3px solid rgba(255,255,255,0.18); box-shadow: 0 -20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.20); }
+        .footer-magic::before { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 35%, transparent 70%), radial-gradient(circle, rgba(255,255,255,0.18) 1px, transparent 1px); background-size: 100% 100%, 34px 34px; opacity: 0.42; pointer-events: none; }
+        .footer-glow-line { height: 5px; background: linear-gradient(90deg, #ff7a00, #f4c400, #00d084, #00aaff, #a855f7, #ff2d75); box-shadow: 0 0 18px rgba(255,255,255,0.45), 0 0 30px rgba(0,209,255,0.35); }
+        .footer-brand-card { position: relative; overflow: hidden; border-radius: 34px; padding: 24px; background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07)), radial-gradient(circle at top left, rgba(255,180,0,0.28), transparent 35%); border: 2px solid rgba(255,255,255,0.22); box-shadow: 0 18px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.35); }
+        .footer-brand-card::before { content: ""; position: absolute; top: 10px; left: 18px; right: 18px; height: 32%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.20), transparent); pointer-events: none; }
+        .footer-title-3d { font-size: 28px; font-weight: 950; font-style: italic; letter-spacing: -1px; color: #1f8bff; text-shadow: 0 1px 0 #fff, 0 2px 0 #9bc7ff, 0 4px 0 #004bbd, 0 8px 18px rgba(0,102,255,0.55); }
+        .footer-title-py { color: #f4c400; text-shadow: 0 1px 0 #fff, 0 2px 0 #ffe98a, 0 4px 0 #b88700, 0 8px 18px rgba(244,196,0,0.55); }
+        .footer-box { position: relative; overflow: hidden; border-radius: 30px; padding: 24px; background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07)); border: 2px solid rgba(255,255,255,0.20); box-shadow: 0 16px 34px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25); }
+        .footer-box::before { content: ""; position: absolute; top: 8px; left: 16px; right: 16px; height: 28%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.17), transparent); pointer-events: none; }
+        .footer-heading { position: relative; z-index: 1; font-size: 15px; font-weight: 950; color: white; text-transform: uppercase; letter-spacing: -0.3px; text-shadow: 0 2px 2px rgba(0,0,0,0.45), 0 0 10px rgba(255,255,255,0.30); }
+        .footer-pill-link { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.88); font-weight: 850; font-size: 13px; padding: 10px 12px; border-radius: 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease; }
+        .footer-pill-link:hover { transform: translateX(6px) scale(1.02); background: rgba(255,255,255,0.14); color: white; }
+        .footer-mini-dot { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.92), rgba(255,255,255,0.20), rgba(0,0,0,0.10)); box-shadow: inset 0 2px 4px rgba(255,255,255,0.38), inset 0 -3px 5px rgba(0,0,0,0.18); }
+        .footer-contact-btn { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; border-radius: 24px; padding: 14px; border: 2px solid rgba(255,255,255,0.22); color: white; transition: transform 0.22s ease, filter 0.22s ease; box-shadow: 0 8px 0 rgba(0,0,0,0.18), 0 16px 26px rgba(0,0,0,0.22), inset 0 3px 7px rgba(255,255,255,0.28), inset 0 -5px 8px rgba(0,0,0,0.18); }
+        .footer-contact-btn:hover { transform: translateY(-4px) scale(1.03); filter: brightness(1.12) saturate(1.15); }
+        .footer-contact-btn:active { transform: translateY(2px) scale(0.98); }
+        .footer-contact-blue { background: linear-gradient(135deg, #1f8bff, #0066ff, #1437d9); }
+        .footer-contact-cyan { background: linear-gradient(135deg, #00b7ff, #0088cc, #005f99); }
+        .footer-contact-green { background: linear-gradient(135deg, #2dd46f, #13a852, #08753a); }
+        .footer-social { width: 48px; height: 48px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); border: 2px solid rgba(255,255,255,0.22); box-shadow: 0 8px 18px rgba(0,0,0,0.24), inset 0 3px 7px rgba(255,255,255,0.30); transition: transform 0.22s ease, filter 0.22s ease; }
+        .footer-social:hover { transform: translateY(-5px) rotate(-3deg) scale(1.08); filter: brightness(1.18); }
+        .footer-bottom-glass { border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
+      `}</style>
+
       {/* FONDO NUEVO ILUSTRADO */}
       <div className="fixed inset-0 z-0">
         <img
@@ -73,7 +473,7 @@
         </header>
 
         {/* HERO SECTION */}
-        <section className="mx-auto max-w-7xl px-3 pt-5 md:px-4 md:pt-8 flex items-center justify-center gap-6">
+        <section className="mx-auto max-w-7xl px-4 pt-8 flex items-center justify-center gap-6">
           <div className="hidden lg:flex flex-col items-center group transition-transform hover:scale-110">
             <a href="https://www.facebook.com/amazon.paraguay" target="_blank" className="bg-white/80 p-4 rounded-full shadow-lg mb-2">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="#1877F2">
@@ -85,12 +485,18 @@
             </span>
           </div>
 
-          <div className="flex-1 max-w-5xl overflow-hidden bg-transparent shadow-none rounded-[26px] md:rounded-[55px]">
+          <div
+            className="flex-1 max-w-5xl overflow-hidden bg-transparent shadow-none"
+            style={{
+              borderRadius: "55px",
+            }}
+          >
             <img
               src="/hero-amazonpy-6.png"
               alt="Banner"
-              className="block w-full h-auto rounded-[26px] md:rounded-[55px]"
+              className="block w-full h-auto"
               style={{
+                borderRadius: "55px",
                 display: "block",
               }}
             />
@@ -117,6 +523,7 @@
           </div>
         </section>
 
+        {/* --- BOTÓN DE INSTALAR APP ESTATICO --- */}
         {isInstallable && (
           <section className="mx-auto max-w-4xl px-4 pt-6 flex justify-center">
             <button
@@ -127,10 +534,11 @@
             </button>
           </section>
         )}
+        {/* -------------------------------------- */}
 
         {/* MENÚ DE CATEGORÍAS */}
-        <section className="mx-auto max-w-6xl px-3 pt-6 md:px-4 md:pt-10">
-          <div className="cat-menu-glow p-3 md:p-5 flex gap-3 md:gap-5 overflow-x-auto pb-4 md:pb-5 no-scrollbar">
+        <section className="mx-auto max-w-6xl px-4 pt-10">
+          <div className="cat-menu-glow p-5 flex gap-5 overflow-x-auto pb-5 no-scrollbar">
             <button
               onClick={() => setSelectedCategory("all")}
               className={`cat-btn-glow flex flex-col items-center justify-center gap-2 text-white transition-all duration-300 whitespace-nowrap ${
@@ -178,7 +586,7 @@
         </section>
 
         {/* GRILLA DE PRODUCTOS */}
-        <section className="mx-auto max-w-7xl px-3 py-6 md:px-4 md:py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {filtered.map((it) => (
             <div key={it.id} className="card-shell">
               <article className="group card-inner-wave">
@@ -203,6 +611,7 @@
                 </Link>
 
                 <div className="flex-1">
+                  
                   <div className="flex flex-wrap items-center gap-1.5 mb-2">
                     <div
                       className="inline-flex items-center gap-1 font-black text-[9px] uppercase rounded-full px-2 py-1 border border-white shadow-sm text-white"
@@ -274,6 +683,7 @@
                     Comprar ya
                   </button>
                 )}
+
               </article>
             </div>
           ))}
@@ -431,6 +841,7 @@
         </footer>
       </div>
 
+      {/* --- MODAL PARA DETALLES DE USO (POP-UP) --- */}
       {defectModal.show && (
         <div 
           className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -463,6 +874,7 @@
         </div>
       )}
 
+      {/* MODAL DE COMPRA CON ESTILO LOGIN */}
       {buyOpen && selected && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
           <div className="login-shell w-full max-w-md rounded-[2rem] p-4">
@@ -491,16 +903,49 @@
               </button>
 
               <div className="space-y-3">
-                <input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder="Nombre y Apellido" className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" required />
-                <input value={buyerWhatsapp} onChange={e => setBuyerWhatsapp(e.target.value)} placeholder="Tu WhatsApp (obligatorio)" className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" required />
-                <input value={buyerCity} onChange={e => setBuyerCity(e.target.value)} placeholder="Ciudad (obligatorio)" className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" required />
-                <textarea value={buyerAddress} onChange={e => setBuyerAddress(e.target.value)} placeholder="Dirección de entrega (obligatorio)" className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30 h-20 resize-none" required />
+                <input
+                  value={buyerName}
+                  onChange={e => setBuyerName(e.target.value)}
+                  placeholder="Nombre y Apellido"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <input
+                  value={buyerWhatsapp}
+                  onChange={e => setBuyerWhatsapp(e.target.value)}
+                  placeholder="Tu WhatsApp (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <input
+                  value={buyerCity}
+                  onChange={e => setBuyerCity(e.target.value)}
+                  placeholder="Ciudad (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  required
+                />
+                <textarea
+                  value={buyerAddress}
+                  onChange={e => setBuyerAddress(e.target.value)}
+                  placeholder="Dirección de entrega (obligatorio)"
+                  className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30 h-20 resize-none"
+                  required
+                />
                 <div>
-                  <input value={buyerEmail} onChange={e => setBuyerEmail(e.target.value)} placeholder="Correo electrónico (no obligatorio)" className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30" />
+                  <input
+                    value={buyerEmail}
+                    onChange={e => setBuyerEmail(e.target.value)}
+                    placeholder="Correo electrónico (no obligatorio)"
+                    className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
+                  />
                   <p className="text-[11px] text-gray-400 mt-1 ml-2">No obligatorio</p>
                 </div>
 
-                <button onClick={createOrder} disabled={buyLoading} className="mt-4 w-full rounded-2xl bg-[#2FA84F] py-4 text-white font-black text-sm uppercase shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50">
+                <button
+                  onClick={createOrder}
+                  disabled={buyLoading}
+                  className="mt-4 w-full rounded-2xl bg-[#2FA84F] py-4 text-white font-black text-sm uppercase shadow-xl hover:scale-[1.02] transition-transform disabled:opacity-50"
+                >
                   {buyLoading ? "Procesando..." : "Confirmar y enviar"}
                 </button>
               </div>
@@ -515,7 +960,10 @@
         </div>
       )}
 
+      {/* BARRA DE BOTONES FIJA EN EL INICIO */}
       <AclasifStickyDock />
+
+      {/* ASISTENTE VIRTUAL */}
       <AclasifChat />
     </main>
   );
