@@ -328,6 +328,29 @@ export default function Home() {
         .search-hero { background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.86)); border: 2px solid rgba(255,255,255,0.72); box-shadow: inset 0 3px 8px rgba(0,0,0,0.10), 0 8px 18px rgba(0,0,0,0.12); transition: transform 0.25s ease, box-shadow 0.25s ease; }
         .search-hero:focus { transform: translateY(-2px); box-shadow: inset 0 3px 8px rgba(0,0,0,0.10), 0 0 0 5px rgba(0,102,255,0.22), 0 12px 24px rgba(0,102,255,0.16); }
         .nav-action-btn { position: relative; overflow: hidden; cursor: pointer; border: 3px solid rgba(255,255,255,0.62); border-radius: 999px; padding: 10px 18px; font-size: 12px; font-weight: 950; color: white; text-transform: uppercase; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; text-decoration: none; box-shadow: 0 7px 0 rgba(0,0,0,0.20), 0 14px 22px rgba(0,0,0,0.25), inset 0 4px 8px rgba(255,255,255,0.42), inset 0 -6px 10px rgba(0,0,0,0.18); text-shadow: 0 2px 2px rgba(0,0,0,0.40), 0 0 8px rgba(255,255,255,0.32); transition: transform 0.22s ease, filter 0.22s ease, box-shadow 0.22s ease; }
+        @media (max-width: 767px) {
+          .nav-action-btn {
+            padding: 6px 7px;
+            font-size: 9px;
+            gap: 3px;
+            border-width: 2px;
+          }
+
+          .nav-action-btn .nav-icon-dot {
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+          }
+
+          .brand-by {
+            font-size: 9px;
+          }
+
+          .brand-amazon {
+            font-size: 23px;
+            letter-spacing: -1px;
+          }
+        }
         .nav-action-btn::before { content: ""; position: absolute; top: 5px; left: 14px; right: 14px; height: 35%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.05)); pointer-events: none; }
         .nav-action-btn:hover { transform: translateY(-4px) scale(1.06); filter: brightness(1.14) saturate(1.2); }
         .nav-action-btn:active { transform: translateY(2px) scale(0.98); }
@@ -403,8 +426,8 @@ export default function Home() {
 
       <div className="relative z-10">
         <header className="sticky top-0 z-50 topbar-hero">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 gap-4">
-            <Link href="/" className="brand-3d">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-2 py-2 gap-2 md:px-6 md:py-3 md:gap-4">
+            <Link href="/" className="brand-3d scale-[0.82] origin-left md:scale-100 flex-shrink-0">
               <span className="brand-by">by:</span>
               <span className="brand-amazon">
                 AMAZON<span className="brand-py">PY</span>
@@ -421,7 +444,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 md:gap-3 flex-shrink-0">
               {!sessionUser ? (
                 <>
                   <Link href="/login" className="nav-action-btn nav-login-btn">
