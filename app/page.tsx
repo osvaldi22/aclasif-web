@@ -330,6 +330,32 @@ export default function Home() {
               )}
             </div>
           </div>
+
+          <form
+            className="px-4 pb-3 md:hidden"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const input = e.currentTarget.querySelector("input");
+              input?.blur();
+            }}
+          >
+            <div className="search-hero flex w-full items-center rounded-full px-4 py-2.5">
+              <input
+                type="text"
+                placeholder="Buscar producto..."
+                className="w-full bg-transparent outline-none text-sm text-slate-700 font-semibold"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <button
+                type="submit"
+                className="ml-2 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#0066FF] text-white shadow-md"
+                aria-label="Buscar"
+              >
+                🔍
+              </button>
+            </div>
+          </form>
         </header>
 
         {/* HERO */}
