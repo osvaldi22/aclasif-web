@@ -350,6 +350,33 @@ export default function Home() {
             font-size: 23px;
             letter-spacing: -1px;
           }
+
+          .cat-menu-glow {
+            border-radius: 26px;
+          }
+
+          .cat-btn-glow {
+            min-width: 112px;
+            height: 88px;
+            border-radius: 24px;
+          }
+
+          .cat-icon-bubble {
+            width: 42px;
+            height: 42px;
+          }
+
+          .cat-title-glow {
+            font-size: 12px;
+          }
+
+          .card-shell {
+            padding: 10px;
+          }
+
+          .card-inner-wave {
+            padding: 1rem;
+          }
         }
         .nav-action-btn::before { content: ""; position: absolute; top: 5px; left: 14px; right: 14px; height: 35%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.70), rgba(255,255,255,0.05)); pointer-events: none; }
         .nav-action-btn:hover { transform: translateY(-4px) scale(1.06); filter: brightness(1.14) saturate(1.2); }
@@ -473,7 +500,7 @@ export default function Home() {
         </header>
 
         {/* HERO SECTION */}
-        <section className="mx-auto max-w-7xl px-4 pt-8 flex items-center justify-center gap-6">
+        <section className="mx-auto max-w-7xl px-3 pt-5 md:px-4 md:pt-8 flex items-center justify-center gap-6">
           <div className="hidden lg:flex flex-col items-center group transition-transform hover:scale-110">
             <a href="https://www.facebook.com/amazon.paraguay" target="_blank" className="bg-white/80 p-4 rounded-full shadow-lg mb-2">
               <svg width="40" height="40" viewBox="0 0 24 24" fill="#1877F2">
@@ -485,18 +512,12 @@ export default function Home() {
             </span>
           </div>
 
-          <div
-            className="flex-1 max-w-5xl overflow-hidden bg-transparent shadow-none"
-            style={{
-              borderRadius: "55px",
-            }}
-          >
+          <div className="flex-1 max-w-5xl overflow-hidden bg-transparent shadow-none rounded-[26px] md:rounded-[55px]">
             <img
               src="/hero-amazonpy-6.png"
               alt="Banner"
-              className="block w-full h-auto"
+              className="block w-full h-auto rounded-[26px] md:rounded-[55px]"
               style={{
-                borderRadius: "55px",
                 display: "block",
               }}
             />
@@ -537,8 +558,8 @@ export default function Home() {
         {/* -------------------------------------- */}
 
         {/* MENÚ DE CATEGORÍAS */}
-        <section className="mx-auto max-w-6xl px-4 pt-10">
-          <div className="cat-menu-glow p-5 flex gap-5 overflow-x-auto pb-5 no-scrollbar">
+        <section className="mx-auto max-w-6xl px-3 pt-6 md:px-4 md:pt-10">
+          <div className="cat-menu-glow p-3 md:p-5 flex gap-3 md:gap-5 overflow-x-auto pb-4 md:pb-5 no-scrollbar">
             <button
               onClick={() => setSelectedCategory("all")}
               className={`cat-btn-glow flex flex-col items-center justify-center gap-2 text-white transition-all duration-300 whitespace-nowrap ${
@@ -586,7 +607,7 @@ export default function Home() {
         </section>
 
         {/* GRILLA DE PRODUCTOS */}
-        <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <section className="mx-auto max-w-7xl px-3 py-6 md:px-4 md:py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           {filtered.map((it) => (
             <div key={it.id} className="card-shell">
               <article className="group card-inner-wave">
