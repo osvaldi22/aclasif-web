@@ -536,6 +536,16 @@ export default function Home() {
               )}
             </div>
           </div>
+
+          <div className="px-3 pb-3 md:hidden">
+            <input
+              type="text"
+              placeholder="Buscar producto..."
+              className="search-hero w-full rounded-full px-5 py-3 outline-none text-sm text-slate-700 font-semibold"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
         </header>
 
         {/* HERO SECTION */}
@@ -583,7 +593,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --- BOTÓN DE INSTALAR APP ESTATICO --- */}
         {isInstallable && (
           <section className="mx-auto max-w-4xl px-4 pt-6 flex justify-center">
             <button
@@ -594,7 +603,6 @@ export default function Home() {
             </button>
           </section>
         )}
-        {/* -------------------------------------- */}
 
         {/* MENÚ DE CATEGORÍAS */}
         <section className="mx-auto max-w-6xl px-3 pt-6 md:px-4 md:pt-10">
@@ -901,7 +909,6 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* --- MODAL PARA DETALLES DE USO (POP-UP) --- */}
       {defectModal.show && (
         <div 
           className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
@@ -934,7 +941,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODAL DE COMPRA CON ESTILO LOGIN */}
       {buyOpen && selected && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4">
           <div className="login-shell w-full max-w-md rounded-[2rem] p-4">
@@ -1020,10 +1026,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* BARRA DE BOTONES FIJA EN EL INICIO */}
       <AclasifStickyDock />
-
-      {/* ASISTENTE VIRTUAL */}
       <AclasifChat />
     </main>
   );
