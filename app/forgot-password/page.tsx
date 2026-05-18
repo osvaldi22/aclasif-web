@@ -4,31 +4,37 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
-export default function LoginPage() {
+export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [successOpen, setSuccessOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleSendReset(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
 
-    if (!email.trim() || !password.trim()) {
-      setMsg("Completa correo y contrasena.");
+    const emailLimpio = email.trim();
+
+    if (!emailLimpio) {
+      setMsg("Escribi tu correo electronico.");
       return;
     }
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: password.trim(),
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/update-password`
+        : "https://aclasif-web.vercel.app/update-password";
+
+    const { error } = await supabase.auth.resetPasswordForEmail(emailLimpio, {
+      redirectTo,
     });
 
     setLoading(false);
@@ -38,11 +44,8 @@ export default function LoginPage() {
       return;
     }
 
-    setMsg("Inicio de sesion exitoso. Redirigiendo al panel...");
-
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 1200);
+    setSuccessOpen(true);
+    setEmail("");
   }
 
   return (
@@ -58,7 +61,7 @@ export default function LoginPage() {
           animation: float linear infinite;
         }
 
-        .login-shell {
+        .forgot-shell {
           background: linear-gradient(180deg, #9fcbff 0%, #7eb7f5 100%);
           border: 3px solid rgba(120, 177, 245, 0.95);
           box-shadow:
@@ -66,7 +69,7 @@ export default function LoginPage() {
             0 0 0 2px rgba(255,255,255,0.16) inset;
         }
 
-        .login-inner {
+        .forgot-inner {
           background: rgba(255,255,255,0.93);
           border: 1px solid rgba(255,255,255,0.80);
           box-shadow:
@@ -88,14 +91,23 @@ export default function LoginPage() {
           box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
 
-        .forgot-link {
-          color: #0066ff;
-          font-weight: 900;
-          text-decoration: none;
+        .success-modal-shell {
+          background:
+            radial-gradient(circle at top left, rgba(47,168,79,0.35), transparent 38%),
+            radial-gradient(circle at top right, rgba(244,196,0,0.35), transparent 38%),
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,255,245,0.96));
+          border: 3px solid rgba(47,168,79,0.35);
+          box-shadow:
+            0 26px 70px rgba(0,0,0,0.38),
+            inset 0 1px 0 rgba(255,255,255,0.9);
         }
 
-        .forgot-link:hover {
-          text-decoration: underline;
+        .success-check {
+          background: linear-gradient(135deg, #2FA84F 0%, #20D66F 100%);
+          box-shadow:
+            0 10px 25px rgba(47,168,79,0.35),
+            inset 0 3px 7px rgba(255,255,255,0.35),
+            inset 0 -5px 8px rgba(0,0,0,0.16);
         }
       `}</style>
 
@@ -126,8 +138,8 @@ export default function LoginPage() {
       </div>
 
       <div className="relative z-10 min-h-screen px-4 py-10 flex items-center justify-center">
-        <div className="login-shell w-full max-w-md rounded-[2rem] p-4">
-          <div className="login-inner rounded-[1.7rem] p-6">
+        <div className="forgot-shell w-full max-w-md rounded-[2rem] p-4">
+          <div className="forgot-inner rounded-[1.7rem] p-6">
             <div className="mb-5 flex justify-center">
               <Link href="/" className="block">
                 <img
@@ -140,14 +152,14 @@ export default function LoginPage() {
             </div>
 
             <h1 className="text-2xl font-black text-slate-800">
-              Iniciar <span className="text-[#2FA84F]">sesion</span>
+              Recuperar <span className="text-[#2FA84F]">contrasena</span>
             </h1>
 
             <p className="mt-2 text-sm text-slate-600">
-              Entra con tu cuenta de vendedor.
+              Escribi tu correo y te enviaremos un enlace para crear una nueva contrasena.
             </p>
 
-            <form onSubmit={handleLogin} className="mt-6 grid gap-3">
+            <form onSubmit={handleSendReset} className="mt-6 grid gap-3">
               <input
                 type="email"
                 value={email}
@@ -156,22 +168,8 @@ export default function LoginPage() {
                 className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
               />
 
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Contrasena"
-                className="field-soft w-full rounded-2xl px-4 py-3 text-sm text-slate-800 outline-none focus:ring-4 focus:ring-[#2FA84F]/30"
-              />
-
-              <div className="text-right">
-                <Link href="/forgot-password" className="forgot-link text-sm">
-                  ¿Olvidaste tu contrasena?
-                </Link>
-              </div>
-
               {msg && (
-                <div className="message-soft rounded-2xl px-4 py-3 text-sm text-slate-700">
+                <div className="message-soft rounded-2xl px-4 py-3 text-sm font-bold text-red-600">
                   {msg}
                 </div>
               )}
@@ -181,17 +179,17 @@ export default function LoginPage() {
                 disabled={loading}
                 className="mt-2 rounded-2xl bg-[#2FA84F] px-4 py-3 text-sm font-black text-white shadow-lg hover:brightness-110 disabled:opacity-60"
               >
-                {loading ? "Entrando..." : "Entrar"}
+                {loading ? "Enviando..." : "Enviar correo de recuperacion"}
               </button>
             </form>
 
             <p className="mt-5 text-sm text-slate-600">
-              No tienes cuenta?{" "}
+              Ya recordaste tu contrasena?{" "}
               <Link
-                href="/register"
+                href="/login"
                 className="font-semibold text-[#F4C400] hover:underline"
               >
-                Registrarme
+                Iniciar sesion
               </Link>
             </p>
 
@@ -203,6 +201,35 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {successOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 backdrop-blur-md px-4">
+          <div className="success-modal-shell w-full max-w-md rounded-[2rem] p-6 text-center">
+            <div className="mx-auto mb-5 success-check flex h-20 w-20 items-center justify-center rounded-full text-4xl text-white">
+              ✉
+            </div>
+
+            <h2 className="text-2xl font-black text-slate-800">
+              Correo enviado
+            </h2>
+
+            <p className="mt-3 text-lg font-black text-[#2FA84F]">
+              Revisa tu bandeja de entrada
+            </p>
+
+            <p className="mt-3 text-sm font-semibold text-slate-600">
+              Si el correo existe en Aclasif, vas a recibir un enlace para cambiar tu contrasena.
+            </p>
+
+            <Link
+              href="/login"
+              className="mt-6 inline-flex rounded-2xl bg-[#F4C400] px-6 py-3 text-sm font-black text-black shadow-lg hover:brightness-110"
+            >
+              Volver a iniciar sesion
+            </Link>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
