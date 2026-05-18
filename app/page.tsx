@@ -264,7 +264,7 @@ export default function HomePage() {
                 <p className="text-slate-500 text-sm">Prueba otra categoría o limpia el buscador.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5 pb-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5 pb-10">
                 {filteredListings.map((listing) => (
                   <Link href={`/producto/${listing.article_code}`} key={listing.id} className="group relative flex flex-col overflow-hidden rounded-3xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-xl ring-1 ring-slate-100">
                     <div className="aspect-[4/3] w-full overflow-hidden rounded-2xl bg-slate-100">
