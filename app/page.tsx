@@ -292,6 +292,28 @@ export default function Home() {
         .cat-icon-bubble { width: 48px; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.95), rgba(255,255,255,0.18) 35%, rgba(0,0,0,0.10) 100%); }
         .cat-title-glow { font-size: 13px; line-height: 1; font-weight: 950; letter-spacing: -0.2px; color: white; text-align: center; text-shadow: 0 2px 2px rgba(0,0,0,0.55); }
         .cat-btn-selected { transform: translateY(-5px) scale(1.08); border-color: white; box-shadow: 0 0 0 5px rgba(255,255,255,0.32); }
+        .footer-magic { position: relative; overflow: hidden; background: radial-gradient(circle at 12% 18%, rgba(255,122,0,0.24), transparent 28%), radial-gradient(circle at 82% 20%, rgba(0,209,255,0.25), transparent 30%), radial-gradient(circle at 55% 88%, rgba(168,85,247,0.20), transparent 34%), linear-gradient(180deg, rgba(5,10,30,0.96), rgba(7,15,42,0.98)); border-top: 3px solid rgba(255,255,255,0.18); box-shadow: 0 -20px 60px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.20); }
+        .footer-magic::before { content: ""; position: absolute; inset: 0; background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.08) 35%, transparent 70%), radial-gradient(circle, rgba(255,255,255,0.18) 1px, transparent 1px); background-size: 100% 100%, 34px 34px; opacity: 0.42; pointer-events: none; }
+        .footer-glow-line { height: 5px; background: linear-gradient(90deg, #ff7a00, #f4c400, #00d084, #00aaff, #a855f7, #ff2d75); box-shadow: 0 0 18px rgba(255,255,255,0.45), 0 0 30px rgba(0,209,255,0.35); }
+        .footer-brand-card { position: relative; overflow: hidden; border-radius: 34px; padding: 24px; background: linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.07)), radial-gradient(circle at top left, rgba(255,180,0,0.28), transparent 35%); border: 2px solid rgba(255,255,255,0.22); box-shadow: 0 18px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.35); }
+        .footer-brand-card::before { content: ""; position: absolute; top: 10px; left: 18px; right: 18px; height: 32%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.20), transparent); pointer-events: none; }
+        .footer-title-3d { font-size: 28px; font-weight: 950; font-style: italic; letter-spacing: -1px; color: #1f8bff; text-shadow: 0 1px 0 #fff, 0 2px 0 #9bc7ff, 0 4px 0 #004bbd, 0 8px 18px rgba(0,102,255,0.55); }
+        .footer-title-py { color: #f4c400; text-shadow: 0 1px 0 #fff, 0 2px 0 #ffe98a, 0 4px 0 #b88700, 0 8px 18px rgba(244,196,0,0.55); }
+        .footer-box { position: relative; overflow: hidden; border-radius: 30px; padding: 24px; background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07)); border: 2px solid rgba(255,255,255,0.20); box-shadow: 0 16px 34px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.25); }
+        .footer-box::before { content: ""; position: absolute; top: 8px; left: 16px; right: 16px; height: 28%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,0.17), transparent); pointer-events: none; }
+        .footer-heading { position: relative; z-index: 1; font-size: 15px; font-weight: 950; color: white; text-transform: uppercase; letter-spacing: -0.3px; text-shadow: 0 2px 2px rgba(0,0,0,0.45), 0 0 10px rgba(255,255,255,0.30); }
+        .footer-pill-link { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.88); font-weight: 850; font-size: 13px; padding: 10px 12px; border-radius: 18px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10); transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease; }
+        .footer-pill-link:hover { transform: translateX(6px) scale(1.02); background: rgba(255,255,255,0.14); color: white; }
+        .footer-mini-dot { width: 24px; height: 24px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 25%, rgba(255,255,255,0.92), rgba(255,255,255,0.20), rgba(0,0,0,0.10)); box-shadow: inset 0 2px 4px rgba(255,255,255,0.38), inset 0 -3px 5px rgba(0,0,0,0.18); }
+        .footer-contact-btn { position: relative; overflow: hidden; display: flex; align-items: center; gap: 14px; border-radius: 24px; padding: 14px; border: 2px solid rgba(255,255,255,0.22); color: white; transition: transform 0.22s ease, filter 0.22s ease; box-shadow: 0 8px 0 rgba(0,0,0,0.18), 0 16px 26px rgba(0,0,0,0.22), inset 0 3px 7px rgba(255,255,255,0.28), inset 0 -5px 8px rgba(0,0,0,0.18); }
+        .footer-contact-btn:hover { transform: translateY(-4px) scale(1.03); filter: brightness(1.12) saturate(1.15); }
+        .footer-contact-btn:active { transform: translateY(2px) scale(0.98); }
+        .footer-contact-blue { background: linear-gradient(135deg, #1f8bff, #0066ff, #1437d9); }
+        .footer-contact-cyan { background: linear-gradient(135deg, #00b7ff, #0088cc, #005f99); }
+        .footer-contact-green { background: linear-gradient(135deg, #2dd46f, #13a852, #08753a); }
+        .footer-social { width: 48px; height: 48px; border-radius: 18px; display: inline-flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06)); border: 2px solid rgba(255,255,255,0.22); box-shadow: 0 8px 18px rgba(0,0,0,0.24), inset 0 3px 7px rgba(255,255,255,0.30); transition: transform 0.22s ease, filter 0.22s ease; }
+        .footer-social:hover { transform: translateY(-5px) rotate(-3deg) scale(1.08); filter: brightness(1.18); }
+        .footer-bottom-glass { border-radius: 999px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18); }
       `}</style>
 
       {/* FONDO */}
@@ -474,6 +496,157 @@ export default function Home() {
             </div>
           ))}
         </section>
+
+        {/* FOOTER PREMIUM */}
+        <footer className="footer-magic mt-20">
+          <div className="footer-glow-line" />
+
+          <div className="relative z-10 mx-auto max-w-7xl px-6 pt-16 pb-10">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-stretch">
+              <div className="footer-brand-card lg:col-span-1">
+                <div className="relative z-10 flex flex-col items-center text-center">
+                  <div className="footer-title-3d mb-4">
+                    AMAZON<span className="footer-title-py">PY</span>
+                  </div>
+
+                  <div className="relative mb-5">
+                    <div className="absolute inset-0 rounded-full bg-yellow-300/30 blur-2xl" />
+                    <img
+                      src="/amazonpy-footer.png"
+                      alt="AmazonPy"
+                      className="relative z-10 h-36 w-auto object-contain drop-shadow-2xl"
+                    />
+                  </div>
+
+                  <p className="text-white/90 text-sm font-bold leading-relaxed drop-shadow">
+                    La plataforma de clasificados más divertida y segura de Paraguay.
+                    Comprá y vendé de todo con un solo clic. 🇵🇾
+                  </p>
+
+                  <div className="mt-5 inline-flex rounded-full bg-white/10 border border-white/20 px-4 py-2 text-[11px] font-black text-white/90 uppercase tracking-widest">
+                    Seguro • Rápido • Fácil
+                  </div>
+                </div>
+              </div>
+
+              <div className="footer-box">
+                <h4 className="footer-heading mb-5">Navegación</h4>
+                <ul className="space-y-3">
+                  <li>
+                    <Link href="/sobre-nosotros" className="footer-pill-link">
+                      <span className="footer-mini-dot">🏠</span>
+                      <span>Sobre Nosotros</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/como-vender" className="footer-pill-link">
+                      <span className="footer-mini-dot">🛒</span>
+                      <span>¿Cómo vender?</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/ser-premium" className="footer-pill-link">
+                      <span className="footer-mini-dot">⭐</span>
+                      <span>Ser Premium</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/centro-ayuda" className="footer-pill-link">
+                      <span className="footer-mini-dot">💬</span>
+                      <span>Centro de Ayuda</span>
+                    </Link>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="footer-box">
+                <h4 className="footer-heading mb-5">Legales</h4>
+                <ul className="space-y-3 mb-7">
+                  <li>
+                    <Link href="/terminos" className="footer-pill-link">
+                      <span className="footer-mini-dot">📜</span>
+                      <span>Términos y Condiciones</span>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/privacidad" className="footer-pill-link">
+                      <span className="footer-mini-dot">🔒</span>
+                      <span>Política de Privacidad</span>
+                    </Link>
+                  </li>
+                </ul>
+
+                <h4 className="footer-heading mb-4 text-[13px]">Síguenos</h4>
+                <div className="flex gap-4">
+                  <a href="https://www.facebook.com/amazon.paraguay" target="_blank" className="footer-social">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="#3B82F6">
+                      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                    </svg>
+                  </a>
+
+                  <a href="https://instagram.com/amazon_paraguay" target="_blank" className="footer-social">
+                    <svg width="30" height="30" viewBox="0 0 24 24">
+                      <defs>
+                        <linearGradient id="footer-insta-color-premium" x1="0%" y1="100%" x2="100%" y2="0%">
+                          <stop offset="0%" style={{ stopColor: "#f09433" }} />
+                          <stop offset="25%" style={{ stopColor: "#e6683c" }} />
+                          <stop offset="50%" style={{ stopColor: "#dc2743" }} />
+                          <stop offset="75%" style={{ stopColor: "#cc2366" }} />
+                          <stop offset="100%" style={{ stopColor: "#bc1888" }} />
+                        </linearGradient>
+                      </defs>
+                      <path fill="url(#footer-insta-color-premium)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+                    </svg>
+                  </a>
+                </div>
+              </div>
+
+              <div className="footer-box">
+                <h4 className="footer-heading mb-5">Contacto Directo</h4>
+
+                <div className="space-y-4">
+                  <a href="/chat" className="footer-contact-btn footer-contact-blue">
+                    <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl shadow-inner">
+                      💬
+                    </div>
+                    <div className="relative z-10">
+                      <p className="font-black text-white">Chat en vivo</p>
+                      <p className="text-xs text-white/80">Consultas, reclamos, ayuda</p>
+                    </div>
+                  </a>
+
+                  <a href="https://t.me/Aclasif_Bot" target="_blank" className="footer-contact-btn footer-contact-cyan">
+                    <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner">
+                      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.478 8.156l-1.831 8.628c-.136.612-.496.764-1.006.476l-2.778-2.047-1.34 1.288c-.148.148-.272.272-.56.272l.2-2.822 5.14-4.644c.224-.2-.048-.312-.348-.112L9.09 13.37l-2.6-.812c-.564-.176-.576-.564.12-.836L16.77 7.84c.54-.2 1.016.132.708.316z"/>
+                      </svg>
+                    </div>
+                    <div className="relative z-10">
+                      <p className="font-black text-white">Telegram</p>
+                      <p className="text-xs text-white/80">@Aclasif_Bot</p>
+                    </div>
+                  </a>
+
+                  <a href={`https://wa.me/${ADMIN_WHATSAPP}`} target="_blank" className="footer-contact-btn footer-contact-green">
+                    <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl shadow-inner">
+                      🟢
+                    </div>
+                    <div className="relative z-10">
+                      <p className="font-black text-white">Urgencias</p>
+                      <p className="text-xs text-white/80">Solo para casos importantes</p>
+                    </div>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="footer-bottom-glass mt-12 px-6 py-5 text-center">
+              <p className="text-[10px] font-black text-white/80 uppercase tracking-[5px]">
+                © 2026 AMAZONPY CLASIFICADOS — TODOS LOS DERECHOS RESERVADOS
+              </p>
+            </div>
+          </div>
+        </footer>
       </div>
 
       {/* MODAL DETALLES */}
