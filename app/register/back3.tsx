@@ -2,12 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 
 export default function RegisterPage() {
-  const router = useRouter();
-
   const [nombre, setNombre] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [ciudad, setCiudad] = useState("");
@@ -18,7 +15,6 @@ export default function RegisterPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -42,16 +38,9 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const nombreLimpio = nombre.trim();
-    const whatsappLimpio = whatsapp.trim();
-    const ciudadLimpia = ciudad.trim();
-    const direccionLimpia = direccion.trim();
-    const emailLimpio = email.trim();
-    const passwordLimpio = password.trim();
-
     const { data, error } = await supabase.auth.signUp({
-      email: emailLimpio,
-      password: passwordLimpio,
+      email: email.trim(),
+      password: password.trim(),
     });
 
     if (error) {
@@ -62,15 +51,29 @@ export default function RegisterPage() {
 
     const userId = data.user?.id;
 
-    /*
-      IMPORTANTE:
-      Si Supabase ya creó el usuario en Authentication, mostramos éxito sí o sí.
-      El guardado en perfiles es secundario. Si perfiles falla por permisos/RLS,
-      no dejamos al usuario atrapado en la misma página.
-    */
+    if (userId) {
+      const { error: profileError } = await supabase.from("perfiles").upsert([
+        {
+          id: userId,
+          nombre: nombre.trim(),
+          whatsapp: whatsapp.trim(),
+          ciudad: ciudad.trim(),
+          direccion: direccion.trim(),
+        },
+      ]);
+
+      if (profileError) {
+        setLoading(false);
+        setMsg(
+          "Usuario creado, pero hubo un error al guardar el perfil: " +
+            profileError.message
+        );
+        return;
+      }
+    }
 
     setLoading(false);
-    setSuccessOpen(true);
+    setMsg("Registro exitoso. Ahora ya puedes iniciar sesion.");
 
     setNombre("");
     setWhatsapp("");
@@ -78,36 +81,6 @@ export default function RegisterPage() {
     setDireccion("");
     setEmail("");
     setPassword("");
-
-    if (userId) {
-      supabase
-        .from("perfiles")
-        .upsert([
-          {
-            id: userId,
-            nombre: nombreLimpio,
-            whatsapp: whatsappLimpio,
-            ciudad: ciudadLimpia,
-            direccion: direccionLimpia,
-          },
-        ])
-        .then(({ error: profileError }) => {
-          if (profileError) {
-            console.warn(
-              "Usuario creado, pero no se pudo guardar perfil:",
-              profileError.message
-            );
-          }
-        });
-    } else {
-      console.warn(
-        "Usuario creado, pero Supabase no devolvió userId. Puede depender de la configuración de confirmación por email."
-      );
-    }
-
-    setTimeout(() => {
-      router.push("/login");
-    }, 2600);
   }
 
   return (
@@ -151,25 +124,6 @@ export default function RegisterPage() {
           background: rgba(255,255,255,0.82);
           border: 1px solid rgba(255,255,255,0.85);
           box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        }
-
-        .success-modal-shell {
-          background:
-            radial-gradient(circle at top left, rgba(47,168,79,0.35), transparent 38%),
-            radial-gradient(circle at top right, rgba(244,196,0,0.35), transparent 38%),
-            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(240,255,245,0.96));
-          border: 3px solid rgba(47,168,79,0.35);
-          box-shadow:
-            0 26px 70px rgba(0,0,0,0.38),
-            inset 0 1px 0 rgba(255,255,255,0.9);
-        }
-
-        .success-check {
-          background: linear-gradient(135deg, #2FA84F 0%, #20D66F 100%);
-          box-shadow:
-            0 10px 25px rgba(47,168,79,0.35),
-            inset 0 3px 7px rgba(255,255,255,0.35),
-            inset 0 -5px 8px rgba(0,0,0,0.16);
         }
       `}</style>
 
@@ -217,7 +171,7 @@ export default function RegisterPage() {
             </h1>
 
             <p className="mt-2 text-sm text-slate-600">
-              Crea tu cuenta para publicar productos en Aclasif.
+              Crea tu cuenta para publicar productos en AmazonPY.
             </p>
 
             <form onSubmit={handleRegister} className="mt-6 grid gap-3">
@@ -266,7 +220,7 @@ export default function RegisterPage() {
               />
 
               {msg && (
-                <div className="message-soft rounded-2xl px-4 py-3 text-sm font-bold text-red-600">
+                <div className="message-soft rounded-2xl px-4 py-3 text-sm text-slate-700">
                   {msg}
                 </div>
               )}
@@ -298,35 +252,6 @@ export default function RegisterPage() {
           </div>
         </div>
       </div>
-
-      {successOpen && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/55 backdrop-blur-md px-4">
-          <div className="success-modal-shell w-full max-w-md rounded-[2rem] p-6 text-center">
-            <div className="mx-auto mb-5 success-check flex h-20 w-20 items-center justify-center rounded-full text-4xl text-white">
-              ✓
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-800">
-              Su registro ha sido exitoso
-            </h2>
-
-            <p className="mt-3 text-lg font-black text-[#2FA84F]">
-              Bienvenido a Aclasif.com
-            </p>
-
-            <p className="mt-3 text-sm font-semibold text-slate-600">
-              Te estamos enviando a la pagina de iniciar sesion...
-            </p>
-
-            <Link
-              href="/login"
-              className="mt-6 inline-flex rounded-2xl bg-[#F4C400] px-6 py-3 text-sm font-black text-black shadow-lg hover:brightness-110"
-            >
-              Ir ahora a iniciar sesion
-            </Link>
-          </div>
-        </div>
-      )}
     </main>
   );
 }

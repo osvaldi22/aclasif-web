@@ -27,7 +27,6 @@ type Category = { slug: string; name: string };
 type Toast = { show: boolean; text: string };
 
 const ADMIN_WHATSAPP = "595981784334";
-const CHATBOT_API_URL = "https://aclasif-chatbot.onrender.com"; // Tu backend de Render
 
 const iconMap: { [key: string]: string } = {
   "Electrónica": "🎧", "electronica": "🎧",
@@ -119,22 +118,15 @@ export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
 
-  // --- ESTADOS PARA EL CHAT POPUP DE TELEGRAM ---
-  const [tgChatOpen, setTgChatOpen] = useState(false);
-  const [tgChatMinimized, setTgChatMinimized] = useState(false);
-  const [tgNombre, setTgNombre] = useState("");
-  const [tgWhatsApp, setTgWhatsApp] = useState("");
-  const [tgMensaje, setTgMensaje] = useState("");
-  const [tgSending, setTgSending] = useState(false);
-  const [tgExito, setTgExito] = useState(false);
-
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
     };
+
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
     return () => {
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
     };
@@ -213,8 +205,9 @@ export default function Home() {
         .update({ stock: newStock })
         .eq("id", selected.id);
 
+      // --- AVISO A TELEGRAM VÍA RENDER ---
       try {
-        await fetch(`${CHATBOT_API_URL}/api/notificar-compra`, {
+        await fetch("https://aclasif-chatbot.onrender.com/api/notificar-compra", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -230,6 +223,7 @@ export default function Home() {
       } catch (err) {
         console.log("Error al avisar a Telegram:", err);
       }
+      // ------------------------------------
 
       setBuyOpen(false);
       setToast({ show: true, text: `Pedido #${data.order_number} listo. Redirigiendo al chat...` });
@@ -245,40 +239,9 @@ export default function Home() {
         setToast({ show: false, text: "" });
       }, 2000);
     }
+
     setBuyLoading(false);
   }
-
-  // --- FUNCIÓN PARA ENVIAR CONSULTA POR EL POPUP ---
-  const handleTgConsulta = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tgMensaje.trim()) return;
-    setTgSending(true);
-
-    try {
-      const resp = await fetch(`${CHATBOT_API_URL}/api/consulta-web`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nombre: tgNombre.trim(),
-          telefono: tgWhatsApp.trim(),
-          mensaje: tgMensaje.trim(),
-          codigo_art: "Consulta desde Footer"
-        }),
-      });
-      const resData = await resp.json();
-      if (resData.success) {
-        setTgExito(true);
-        setTgMensaje("");
-      } else {
-        alert("⚠️ Hubo un problema al enviar. Intenta de nuevo.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("⚠️ Error de conexión con el bot.");
-    } finally {
-      setTgSending(false);
-    }
-  };
 
   const logout = async () => {
     await supabase.auth.signOut();
@@ -473,7 +436,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* GRILLA DE PRODUCTOS */}
+        {/* GRILLA DE PRODUCTOS - CELULAR ARREGLADO (grid-cols-1) */}
         <section className="mx-auto max-w-7xl px-4 py-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
           {filtered.map((it) => (
             <div key={it.id} className="card-shell">
@@ -652,11 +615,7 @@ export default function Home() {
                     </div>
                   </a>
 
-                  {/* 🔥 BOTÓN DE TELEGRAM MODIFICADO PARA ABRIR EL POPUP NATALIZADO 🔥 */}
-                  <button 
-                    onClick={() => { setTgChatOpen(true); setTgChatMinimized(false); }}
-                    className="w-full footer-contact-btn footer-contact-cyan text-left"
-                  >
+                  <a href="https://t.me/Aclasif_Bot" target="_blank" className="footer-contact-btn footer-contact-cyan">
                     <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shadow-inner">
                       <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.478 8.156l-1.831 8.628c-.136.612-.496.764-1.006.476l-2.778-2.047-1.34 1.288c-.148.148-.272.272-.56.272l.2-2.822 5.14-4.644c.224-.2-.048-.312-.348-.112L9.09 13.37l-2.6-.812c-.564-.176-.576-.564.12-.836L16.77 7.84c.54-.2 1.016.132.708.316z"/>
@@ -664,9 +623,9 @@ export default function Home() {
                     </div>
                     <div className="relative z-10">
                       <p className="font-black text-white">Telegram</p>
-                      <p className="text-xs text-white/80">Escríbenos aquí mismo</p>
+                      <p className="text-xs text-white/80">@Aclasif_Bot</p>
                     </div>
-                  </button>
+                  </a>
 
                   <a href={`https://wa.me/${ADMIN_WHATSAPP}`} target="_blank" className="footer-contact-btn footer-contact-green">
                     <div className="relative z-10 w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl shadow-inner">
@@ -689,75 +648,6 @@ export default function Home() {
           </div>
         </footer>
       </div>
-
-      {/* --- POP-UP CHAT NATALIZADO DE TELEGRAM (NO ROMPE NADA) --- */}
-      {tgChatOpen && (
-        <div className={`fixed bottom-4 right-4 z-[200] w-[320px] sm:w-[380px] transition-all duration-300 ${tgChatMinimized ? 'h-14 overflow-hidden' : 'h-auto'}`}>
-          <div className="bg-zinc-900 border-2 border-zinc-700 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
-            {/* Cabecera */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-                   <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.478 8.156l-1.831 8.628c-.136.612-.496.764-1.006.476l-2.778-2.047-1.34 1.288c-.148.148-.272.272-.56.272l.2-2.822 5.14-4.644c.224-.2-.048-.312-.348-.112L9.09 13.37l-2.6-.812c-.564-.176-.576-.564.12-.836L16.77 7.84c.54-.2 1.016.132.708.316z"/></svg>
-                </div>
-                <span className="font-black text-white text-sm">Atención al Cliente</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setTgChatMinimized(!tgChatMinimized)} className="text-white hover:bg-white/20 p-1 rounded-md transition-colors">
-                  {tgChatMinimized ? "🔲" : "➖"}
-                </button>
-                <button onClick={() => setTgChatOpen(false)} className="text-white hover:bg-white/20 p-1 rounded-md transition-colors font-bold">✕</button>
-              </div>
-            </div>
-
-            {/* Cuerpo del Chat */}
-            {!tgChatMinimized && (
-              <div className="p-5 bg-zinc-950 space-y-4">
-                {tgExito ? (
-                  <div className="text-center py-6 space-y-3 animate-fade-in">
-                    <div className="text-4xl">✅</div>
-                    <p className="text-emerald-400 font-bold text-sm">¡Consulta enviada!</p>
-                    <p className="text-zinc-500 text-xs leading-relaxed">Un agente se contactará contigo vía Telegram o WhatsApp en breve.</p>
-                    <button onClick={() => setTgExito(false)} className="text-blue-400 text-xs font-bold underline">Enviar otra duda</button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleTgConsulta} className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input 
-                        type="text" placeholder="Nombre" 
-                        value={tgNombre} onChange={e => setTgNombre(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" 
-                        required 
-                      />
-                      <input 
-                        type="text" placeholder="WhatsApp" 
-                        value={tgWhatsApp} onChange={e => setTgWhatsApp(e.target.value)}
-                        className="bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500" 
-                        required 
-                      />
-                    </div>
-                    <textarea 
-                      placeholder="¿En qué podemos ayudarte kape?" 
-                      value={tgMensaje} onChange={e => setTgMensaje(e.target.value)}
-                      rows={3} 
-                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500 resize-none" 
-                      required 
-                    />
-                    <button 
-                      type="submit" 
-                      disabled={tgSending}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs uppercase shadow-lg transition-all disabled:opacity-50"
-                    >
-                      {tgSending ? "Enviando..." : "🚀 Enviar mensaje"}
-                    </button>
-                    <p className="text-[9px] text-zinc-600 text-center italic">Tu consulta llegará directo a nuestro Telegram de soporte.</p>
-                  </form>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* MODAL DETALLES */}
       {defectModal.show && (
